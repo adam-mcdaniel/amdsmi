@@ -23,13 +23,13 @@
 #ifndef AMD_SMI_INCLUDE_IMPL_AMD_SMI_GPU_DEVICE_H_
 #define AMD_SMI_INCLUDE_IMPL_AMD_SMI_GPU_DEVICE_H_
 
+#include <map>
+
 #include "amd_smi/amdsmi.h"
 #include "amd_smi/impl/amd_smi_processor.h"
 #include "amd_smi/impl/amd_smi_drm.h"
-#include "shared_mutex.h"  // NOLINT
 
-namespace amd {
-namespace smi {
+namespace amd::smi {
 
 
 // PID, amdsmi_proc_info_t
@@ -72,6 +72,7 @@ class AMDSmiGPUDevice: public AMDSmiProcessor {
 // New methods for -e feature
     std::string bdf_to_string() const;     // -e feature
     std::vector<uint64_t> get_bitmask_from_numa_node(int32_t node_id, uint32_t size) const;
+    std::vector<uint64_t> get_bitmask_from_local_cpulist(uint32_t drm_card, uint32_t size) const;
 
  private:
     uint32_t gpu_id_;
@@ -89,7 +90,6 @@ class AMDSmiGPUDevice: public AMDSmiProcessor {
 };
 
 
-}  // namespace smi
-}  // namespace amd
+} // namespace amd::smi
 
 #endif  // AMD_SMI_INCLUDE_IMPL_AMD_SMI_GPU_DEVICE_H_

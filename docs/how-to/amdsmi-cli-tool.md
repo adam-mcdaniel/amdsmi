@@ -35,7 +35,7 @@ detected:
 ~$ amd-smi
 usage: amd-smi [-h]  ...
 
-AMD System Management Interface | Version: 26.0.0 | ROCm version: 7.0.0 | Platform: Linux Baremetal
+AMD System Management Interface | Version: 26.1.0 | ROCm version: 7.1.0 | Platform: Linux Baremetal
 
 options:
   -h, --help          show this help message and exit
@@ -48,7 +48,7 @@ AMD-SMI Commands:
     firmware (ucode)  Gets firmware information about the specified GPU
     bad-pages         Gets bad page information about the specified GPU
     metric            Gets metric/performance information about the specified GPU
-    process           Lists general process information running on the specified GPU
+    process           Lists compute process information running on the specified GPU
     event             Displays event information for the given GPU
     topology          Displays topology information of the devices
     set               Set options for devices
@@ -73,6 +73,21 @@ For command-specific help, use `amd-smi [command] --help` for see more detailed
 usage information. See [Commands](#cmds).
 
 For more detailed version information, use `amd-smi version`.
+```
+
+Environment variables:
+
+You can set one or more variables in front of any `amd-smi` invocation. For example:
+
+```shell-session
+AMDSMI_GPU_METRICS_CACHE_MS=200 amd-smi metric
+```
+
+Current Variables:
+
+```{note}
+AMDSMI_GPU_METRICS_CACHE_MS - Controls the internal GPU metrics cache duration (ms). Default 100, set to 0 to disable.
+AMDSMI_ASIC_INFO_CACHE_MS - Controls the internal GPU asic info cache duration (ms). Default 10000, set to 0 to disable.
 ```
 
 (cmds)=
@@ -145,7 +160,7 @@ Static Arguments:
   -h, --help               show this help message and exit
   -a, --asic               All asic information
   -b, --bus                All bus information
-  -V, --vbios              All video bios information (if available)
+  -I, --ifwi               All video bios\IFWI information (if available)
   -d, --driver             Displays driver version
   -v, --vram               All vram information
   -c, --cache              All cache information
@@ -313,7 +328,7 @@ Metric arguments:
   -l, --perf-level             Current DPM performance level
   -x, --xgmi-err               XGMI error information since last read
   -E, --energy                 Amount of energy consumed
-  -T, --throttle               Displays throttle accumulators;
+  -v, --violation              Displays throttle accumulators;
                                    Only available for MI300 or newer ASICs
 
 Watch Arguments:
@@ -377,7 +392,7 @@ Command Modifiers:
 (cmd-process)=
 ### amd-smi process
 
-Lists general process information running on the specified GPU.
+Lists compute process information running on the specified GPU.
 
 ```shell-session
 ~$ amd-smi process --help
@@ -548,8 +563,7 @@ Set Arguments:
                                                 AUTO, LOW, HIGH, MANUAL, STABLE_STD, STABLE_PEAK, STABLE_MIN_MCLK, STABLE_MIN_SCLK, DETERMINISM
   -P, --profile PROFILE_LEVEL                 Set power profile level (#) or choose one of available profiles:
                                                 CUSTOM_MASK, VIDEO_MASK, POWER_SAVING_MASK, COMPUTE_MASK, VR_MASK, THREE_D_FULL_SCR_MASK, BOOTUP_DEFAULT
-  -d, --perf-determinism SCLKMAX              Set performance determinism and select one of the corresponding performance levels:
-                                                AUTO, LOW, HIGH, MANUAL, STABLE_STD, STABLE_PEAK, STABLE_MIN_MCLK, STABLE_MIN_SCLK, DETERMINISM
+  -d, --perf-determinism SCLKMAX              Enable performance determinism mode and set GFXCLK softmax limit (in MHz)
   -C, --compute-partition TYPE/INDEX          Set one of the following the accelerator TYPE or profile INDEX:
                                                 N/A.
                                                 Use `sudo amd-smi partition --accelerator` to find acceptable values.
@@ -797,8 +811,6 @@ Command Modifiers:
   --loglevel LEVEL         Set the logging level from the possible choices:
 ```
 
-(cmd-ras)=
-
 ### amd-smi ras
 
 Displays RAS information of specified devices.
@@ -817,12 +829,12 @@ This command accepts options only; no positional arguments are required.
 RAS arguments:
   -h, --help                          show this help message and exit
   --cper                              Trigger CPER data retrieval
-  --afid                              Generate an AFID (AMD Field ID) using CPER record, which is similar to XID.
+  --afid                              Generate an AFID (AMD Field ID) given a CPER record file.
   --severity SEVERITY [SEVERITY ...]  Set the SEVERITY filters from the following:
                                           nonfatal-uncorrected, fatal, nonfatal-corrected, all
   --folder FOLDER                     Folder to dump CPER report files
   --file-limit FILE_LIMIT             Maximum number of entries per output file
-  --cper-file CPER_FILE               Full path of the cper record file to generate the AFID
+  --cper-file CPER_FILE               Full path of the CPER record file to generate the AFID
   --follow                            Continuously monitor for new entries
 
 Device Arguments:
@@ -901,7 +913,7 @@ GPU: 0
         MAX_PCIE_SPEED: 32 GT/s
         PCIE_INTERFACE_VERSION: Gen 5
         SLOT_TYPE: PCIE
-    VBIOS:
+    IFWI:
         NAME: N/A
         BUILD_DATE: N/A
         PART_NUMBER: N/A
@@ -1064,3 +1076,107 @@ GPU: 0
                 LEVEL 0: 45 MHz
 ...
 ```
+
+### Listing CPER entries using amd-smi
+
+This example code shows how to list CPER entries for all GPUs into files
+
+```bash
+~$  sudo amd-smi ras --cper --severity all --folder /tmp/cper_dump/
+timestamp            gpu_id  severity             file_name         list of afids
+2000/06/27 10:45:13  0       FATAL                fatal-1.cper      30
+2000/06/27 10:45:13  1       FATAL                fatal-2.cper      30
+2000/06/27 10:45:13  2       FATAL                fatal-3.cper      30
+2000/06/27 10:45:13  3       FATAL                fatal-4.cper      30
+2000/06/27 10:45:13  4       FATAL                fatal-5.cper      30
+2000/06/27 10:45:13  5       FATAL                fatal-6.cper      30
+2000/06/27 10:45:13  6       FATAL                fatal-7.cper      30
+2000/06/27 10:45:13  7       FATAL                fatal-8.cper      30
+```
+
+This example code shows how to list CPER entries for a given GPU into files
+
+```bash
+~$  sudo amd-smi ras --cper --severity all --folder /tmp/cper_dump/ --gpu 1
+timestamp            gpu_id  severity             file_name         list of afids
+2000/06/27 10:45:13  1       FATAL                fatal-1.cper      30
+```
+
+This example code shows how to list CPER entries and their JSON data for a given GPU into files
+
+```bash
+~$  sudo amd-smi ras --cper --severity all --folder /tmp/cper_dump/ --gpu 1 --json
+timestamp            gpu_id  severity             file_name         list of afids
+2000/06/27 10:45:13  1       FATAL                fatal-1.cper      30
+~$ ls -alh /tmp/cper_dump/
+total 12K
+drwxr-xr-x 2 root root   46 Sep 16 21:12 .
+drwxrwxrwt 1 root root 4.0K Sep 16 18:03 ..
+-rw-r--r-- 1 root root  376 Sep 16 21:12 fatal-1.cper
+-rw-r--r-- 1 root root  347 Sep 16 21:12 fatal-1.json
+~$ cat /tmp/cper_dump/fatal-1.json
+{
+  "error_severity": "fatal",
+  "notify_type": "MCE",
+  "timestamp": "2000/06/27 10:45:13",
+  "signature": "CPER",
+  "revision": 256,
+  "signature_end": "0xffffffff",
+  "sec_cnt": 1,
+  "record_length": 376,
+  "platform_id": "111102-G40307-0C",
+  "creator_id": "136c692517001839",
+  "record_id": "f0000031",
+  "flags": 0,
+  "persistence_info": 0
+}
+```
+
+This example code shows how to continuously list CPER entries without exiting
+
+```bash
+~$  sudo amd-smi ras --cper --follow --severity all --folder /tmp/cper_dump
+Press CTRL + C to stop.
+timestamp            gpu_id  severity             file_name         list of afids
+2000/06/27 10:45:13  0       FATAL                fatal-1.cper      30
+2000/06/27 10:45:13  1       FATAL                fatal-2.cper      30
+2000/06/27 10:45:13  2       FATAL                fatal-3.cper      30
+2000/06/27 10:45:13  3       FATAL                fatal-4.cper      30
+2000/06/27 10:45:13  4       FATAL                fatal-5.cper      30
+2000/06/27 10:45:13  5       FATAL                fatal-6.cper      30
+2000/06/27 10:45:13  6       FATAL                fatal-7.cper      30
+2000/06/27 10:45:13  7       FATAL                fatal-8.cper      30
+...
+```
+
+This example code shows how to list CPER entries with a limited number of entries
+
+```bash
+~$  sudo amd-smi ras --cper --severity all --folder /tmp/cper_dump  --file-limit 5
+timestamp            gpu_id  severity             file_name         list of afids
+2000/06/27 10:45:13  0       FATAL                fatal-1.cper      30
+2000/06/27 10:45:13  1       FATAL                fatal-2.cper      30
+2000/06/27 10:45:13  2       FATAL                fatal-3.cper      30
+2000/06/27 10:45:13  3       FATAL                fatal-4.cper      30
+2000/06/27 10:45:13  4       FATAL                fatal-5.cper      30
+```
+
+This example code shows how to list a specific severity of CPER entries only
+
+```bash
+~$  sudo amd-smi ras --cper --severity fatal --folder /tmp/cper_dump/
+timestamp            gpu_id  severity             file_name         list of afids
+2000/06/27 10:45:13  0       FATAL                fatal-1.cper      30
+```
+
+This example code shows how to dump AFID errors in a CPER file
+
+```bash
+~$  sudo amd-smi ras --afid --cper-file /tmp/cper_dump/fatal-1.cper
+```
+
+Refer to
+[amd_smi_cper_example.py](https://github.com/ROCm/amdsmi/blob/amd-mainline/example/amd_smi_cper_example.py)
+and
+[amd_smi_afid_example.py](https://github.com/ROCm/amdsmi/blob/amd-mainline/example/amd_smi_afid_example.py)
+for API examples.

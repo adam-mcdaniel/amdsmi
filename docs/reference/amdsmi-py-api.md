@@ -434,6 +434,7 @@ on the given GPU. It is not supported on virtual machine guest
 Input parameters:
 
 * `processor_handle` device which to query
+* `sensor_ind` The Package Power Tracking (PPT) type to query
 
 Output: Dictionary with fields
 
@@ -460,12 +461,49 @@ try:
         print("No GPUs on machine")
     else:
         for device in devices:
-            power_cap_info = amdsmi_get_power_cap_info(device)
+            power_cap_info = amdsmi_get_power_cap_info(device, 0)
             print(power_cap_info['power_cap'])
             print(power_cap_info['dpm_cap'])
             print(power_cap_info['default_power_cap'])
             print(power_cap_info['min_power_cap'])
             print(power_cap_info['max_power_cap'])
+except AmdSmiException as e:
+    print(e)
+```
+
+### amdsmi_get_supported_power_cap
+
+Description: Returns dictionary of Package Power Tracking (PPT) types as currently 
+configured on the given GPU. It is not supported on virtual machine guest
+
+Input parameters:
+
+* `processor_handle` device which to query
+
+Output: Dictionary with fields
+
+Field | Description | Units
+---|---
+`sensor_inds` | List of integer indices of the supported ppt types. 0 indicates PPT0 and 1 indicates PPT1. Should be used as input for `amdsmi_get_power_cap_info` and `amdsmi_set_power_cap_info`.
+`sensor_types` | Enum `AmdSmiPowerCapType` that corresponds to the ppt types that are supported on the device.
+
+Exceptions that can be thrown by `amdsmi_get_supported_power_cap` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            power_cap_types = amdsmi_get_supported_power_cap(device)
+            print(power_cap_types['sensor_inds'])
+            print(power_cap_types['sensor_types'])
 except AmdSmiException as e:
     print(e)
 ```
@@ -550,6 +588,42 @@ except AmdSmiException as e:
     print(e)
 ```
 
+### amdsmi_get_gpu_revision
+
+Description: Returns the GPU revision for a given processor handle.
+
+Input parameters:
+
+* `processor_handle` device which to query
+
+Output: string hex value
+
+Field | Description
+---|---
+`revision` | 16 bit integer value returned as hex string.
+
+Exceptions that can be thrown by `amdsmi_get_gpu_revision` function:
+
+* `AmdSmiLibraryException` If the processor handle is invalid.
+* `AmdSmiParameterException` If the underlying library call fails.
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles(handle)
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            revision = amdsmi_get_gpu_revision(device)
+            print(revision)
+except AmdSmiLibraryException as e:
+    print(e)
+except AmdSmiParameterException as e:
+    print(e)
+```
+
 ### amdsmi_get_gpu_cache_info
 
 Description: Returns a list of dictionaries containing cache information for the given GPU.
@@ -611,7 +685,7 @@ except AmdSmiException as e:
 
 ### amdsmi_get_gpu_vbios_info
 
-Description:  Returns the static information for the VBIOS on the device.
+Description:  Returns the static information for the VBIOS/IFWI on the device.
 
 Input parameters:
 
@@ -621,10 +695,11 @@ Output: Dictionary with fields
 
 Field | Description
 ---|---
-`name` | vbios name
-`build_date` | vbios build date
-`part_number` | vbios part number
-`version` | vbios version string
+`name` | VBIOS/IFWI name
+`build_date` | VBIOS/IFWI build date
+`part_number` | VBIOS/IFWI part number
+`version` | VBIOS/IFWI version string
+`boot_firmware` | Unified BootLoader version if available; N/A otherwise
 
 Exceptions that can be thrown by `amdsmi_get_gpu_vbios_info` function:
 
@@ -646,6 +721,7 @@ try:
             print(vbios_info['build_date'])
             print(vbios_info['part_number'])
             print(vbios_info['version'])
+            print(vbios_info['boot_firmware'])
 except AmdSmiException as e:
     print(e)
 ```
@@ -1148,6 +1224,7 @@ Field | Description
 `engine_usage` | <table><thead><tr> <th> Subfield </th> <th> Description</th> </tr></thead><tbody><tr><td>`gfx`</td><td>GFX engine usage in ns</td></tr><tr><td>`enc`</td><td>Encode engine usage in ns</td></tr></tbody></table>
 `memory_usage` | <table><thead><tr> <th> Subfield </th> <th> Description</th> </tr></thead><tbody><tr><td>`gtt_mem`</td><td>GTT memory usage in Bytes</td></tr><tr><td>`cpu_mem`</td><td>CPU memory usage in Bytes</td></tr><tr><td>`vram_mem`</td><td>Process VRAM memory usage in Bytes</td></tr> </tbody></table>
 `cu_occupancy` | Number of Compute Units utilized
+`evicted_time` | Time that queues are evicted on a GPU in milliseconds
 
 Exceptions that can be thrown by `amdsmi_get_gpu_process_list` function:
 
@@ -1224,12 +1301,17 @@ Description: Dump CPER entries for a given GPU in a file using from CPER header 
 Input parameters:
 
 * `processor_handle` device which to query
-* `severity_mask`    the severity mask of the entries to be retrieved
-* `buffer_size`      pointer to a variable that specifies the size of the cper_data
-* `cursor`           pointer to a variable that will contain the  cursor  for the next call
+* `severity_mask`    the severity mask of the entries to be retrieved: 
+                        1:'nonfatal-uncorrected',
+                        2: 'fatal', 
+                        4: 'nonfatal-corrected', 'corrected', 
+                        7: 'all'
+* `buffer_size`      number of bytes that will be used to create a buffer for copying cper entries into; default is 1048576 bytes
+* `cursor`           the zero based index at which to start retrieving cper entries; default value is 0; for example, if there are 10 cper entries available, then with a cursor value of 8, it will retrieve the last two cper entries only
 
-Output: Dictionary with fields, updated cursor, and a dictionary of the cper_data
+Output: Dictionary with fields, updated cursor, and a dictionary of the cper_data, status_code
 
+Output1: Dictionary with fields
 Field | Description
 ---|---
 `error_severity`   | The severity of the CPER error ex: `non_fatal_uncorrected`, `fatal`, `non_fatal_corrected`. |
@@ -1240,11 +1322,24 @@ Field | Description
 `signature_end`    | A marker value (typically `0xFFFFFFFF`) confirming the integrity of the signature. |
 `sec_cnt`          | The count of sections included in the CPER entry. |
 `record_length`    | The total length in bytes of the CPER entry. |
+`serial_number`    | The product serial number. Exists in raw entries in C++ API |
 `platform_id`      | A character array identifying the GPU or platform. |
 `creator_id`       | A character array indicating the creator of the CPER entry. |
 `record_id`        | A unique identifier for the CPER entry. |
 `flags`            | Reserved flags related to the CPER entry. |
 `persistence_info` | Reserved information related to persistence. |
+
+Output2: Updated cursor (int type)
+* Cursor is the index of the next cper entry in the GPU ring buffer. For example, if 10 entries were fetched successfully, the value of cursor will be 11 upon return from the API. Subsequent call to the API with cursor value of 11 should fetch the next entry
+
+Output3: A list of dictionaries, each dictionary containing the CPER record and its size:
+* {"bytes": <raw bytes>, "size": <number of bytes>}
+
+Output4: status_code
+    AMDSMI_STATUS_SUCCESS: If all entries were retrieved successfully
+    AMDSMI_STATUS_MORE_DATA: If some of the entries were retrieved and: 
+        * A subsequent call to the API with the updated cursor will result in the fetching the next batch of entries, or
+        * Increasing the input buffer_size will allow more entries to be fetched with the same cursor
 
 Exceptions that can be thrown by `amdsmi_get_gpu_cper_entries` function:
 
@@ -1254,19 +1349,14 @@ Exceptions that can be thrown by `amdsmi_get_gpu_cper_entries` function:
 Example:
 
 ```python
-for device in devices:
-    entries, new_cursor, cper_data = amdsmi_get_gpu_cper_entries(device, severity_mask, buffer_size, initial_cursor)
-    print("CPER entries for device", device)
-    for key, entry in entries.items():
-        print("Entry", key)
-        print("  Error Severity:", entry.get("error_severity", "Unknown"))
-        print("  Notify Type:", entry.get("notify_type", "Unknown"))
-        print("  Timestamp:", entry.get("timestamp", ""))
-        print()
-    print("New Cursor Position:", new_cursor)
+try:
+    entries, new_cursor, cper_data, status_code = amdsmi_get_gpu_cper_entries(
+        device, severity_mask, buffer_size, initial_cursor)
 except AmdSmiException as e:
     print(e)
 ```
+
+Refer to [amd_smi_cper_example.py](https://github.com/ROCm/amdsmi/blob/amd-mainline/example/amd_smi_cper_example.py) for a complete example.
 
 ### amdsmi_get_afids_from_cper
 
@@ -1274,50 +1364,54 @@ Description: Get the AFIDs from CPER buffer
 
 Input parameters:
 
-* `processor_handle` device which to query
-* `severity_mask`    the severity mask of the entries to be retrieved
-* `buffer_size`      pointer to a variable that specifies the size of the cper_data
-* `cursor`           pointer to a variable that will contain the  cursor  for the next call
+* `cper_afid_data`: raw bytes of a single CPER record.
 
-Output: Dictionary with fields, updated cursor, and a dictionary of the cper_data
+Output: Tuple[List[int], int]: A tuple containing:
+          - A list of extracted AFIDs.
+          - The total count of AFIDs.
 
-Field | Description
----|---
-`error_severity`   | The severity of the CPER error ex: `non_fatal_uncorrected`, `fatal`, `non_fatal_corrected`. |
-`notify_type`      | The notification type associated with the CPER entry. |
-`timestamp`        | The time when the CPER entry was recorded, formatted as `YYYY/MM/DD HH:MM:SS`. |
-`signature`        | A 4-byte signature identifying the entry, typically `CPER`. |
-`revision`         | The revision number of the CPER record format. |
-`signature_end`    | A marker value (typically `0xFFFFFFFF`) confirming the integrity of the signature. |
-`sec_cnt`          | The count of sections included in the CPER entry. |
-`record_length`    | The total length in bytes of the CPER entry. |
-`platform_id`      | A character array identifying the GPU or platform. |
-`creator_id`       | A character array indicating the creator of the CPER entry. |
-`record_id`        | A unique identifier for the CPER entry. |
-`flags`            | Reserved flags related to the CPER entry. |
-`persistence_info` | Reserved information related to persistence. |
+* `status_code` | Upon successful retrieval of data, status_code will be AMDSMI_STATUS_SUCCESS (0) or AMDSMI_STATUS_MORE_DATA (39) if more data can be retrieve by subsequent call to the `amdsmi_get_gpu_cper_entries` function. In the later case, the input parameter `cursor` should be set to the updated `cursor` that was returned from the previous call.
 
 Exceptions that can be thrown by `amdsmi_get_gpu_cper_entries` function:
 
-* `AmdSmiLibraryException`
 * `AmdSmiParameterException`
+* `AmdSmiLibraryException` with these possible error codes:
+    AMDSMI_STATUS_INVAL
+    AMDSMI_STATUS_UNEXPECTED_SIZE
+    AMDSMI_STATUS_UNEXPECTED_DATA
+    AMDSMI_STATUS_NOT_SUPPORTED
 
-Example:
+Example 1: Using a single CPER record as bytes
 
 ```python
-for device in devices:
-    entries, new_cursor, cper_data = amdsmi_get_gpu_cper_entries(device, severity_mask, buffer_size, initial_cursor)
-    print("CPER entries for device", device)
-    for key, entry in entries.items():
-        print("Entry", key)
-        print("  Error Severity:", entry.get("error_severity", "Unknown"))
-        print("  Notify Type:", entry.get("notify_type", "Unknown"))
-        print("  Timestamp:", entry.get("timestamp", ""))
-        print()
-    print("New Cursor Position:", new_cursor)
+cper_bytes = b'\x43\x50\x45\x52...'  # Replace with actual bytes
+afids, num_afids = amdsmi_get_afids_from_cper(cper_bytes)
+print(f"AFIDs: {afids}\nTotal count: {num_afids}")
+```
+
+Example 2: Using a list of dicts
+
+```python
+cper_record = {
+'bytes': [67, 80, 69, 82, ...],  # Replace with actual byte values
+'size': 376}
+afids, num_afids = amdsmi_get_afids_from_cper([cper_record])
+print(f"AFIDs: {afids}\nTotal count: {num_afids}")
+```
+
+Example 3: General Usage
+
+```python
+try:
+    with open(cper_file.path, "rb") as file:
+        afids, num_afids = amdsmi_interface.amdsmi_get_afids_from_cper(file.read())
+        print(f"AFIDs: {afids}\nTotal count: {num_afids}")
+
 except AmdSmiException as e:
     print(e)
 ```
+
+Refer to [amd_smi_afid_example.py](https://github.com/ROCm/amdsmi/blob/amd-mainline/example/amd_smi_afid_example.py) for a complete example.
 
 ### amdsmi_get_gpu_ras_feature_info
 
@@ -1347,16 +1441,35 @@ Exceptions that can be thrown by `amdsmi_get_gpu_ras_feature_info` function:
 Example:
 
 ```python
-try:
-    devices = amdsmi_get_processor_handles()
-    if len(devices) == 0:
-        print("No GPUs on machine")
-    else:
-        for device in devices:
-            ras_info = amdsmi_get_gpu_ras_feature_info(device)
-            print(ras_info)
-except AmdSmiException as e:
-    print(e)
+from amdsmi import *
+import os
+
+amdsmi_init()
+
+def amdsmi_get_afids_from_cper():
+    directory_path = "/tmp/cper_dump/"
+    print(f"Searching for cper file in {directory_path}")
+    with os.scandir(directory_path) as cper_files:
+        for cper_file in cper_files:
+            if cper_file.is_file():
+                if ".bin" in cper_file.path:
+                    print(f"Found {cper_file.path}")
+                    with open(cper_file.path, "rb") as file:
+                        raw = file.read()
+                        afids, num_afids = amdsmi_interface.amdsmi_get_afids_from_cper(raw)
+                        print(f"afids: {afids}")
+
+amdsmi_get_afids_from_cper()
+
+```
+Output:
+```
+sudo python3 afid.py
+Searching for cper file in /tmp/cper_dump/
+Found /tmp/cper_dump/cper_entry_0.bin
+afids: [17]
+Found /tmp/cper_dump/cper_entry_1.bin
+afids: [17]
 ```
 
 ### amdsmi_get_gpu_ras_block_features_enabled
@@ -3258,7 +3371,7 @@ Field | Description
 ---|---
 `num_supported` | The number of supported policies
 `current_id` | The current policy index
-`plpds` | List of policies.
+`policies` | List of policies. (`plpds` marked for deprecation in next major release)
 
 Exceptions that can be thrown by `amdsmi_get_xgmi_plpd` function:
 
@@ -3469,6 +3582,7 @@ Field | Description
 `vram_usage` | VRAM usage
 `sdma_usage` | SDMA usage in microseconds
 `cu_occupancy` | Compute Unit usage in percents
+`evicted_time` | Time that queues are evicted on a GPU in milliseconds
 
 Exceptions that can be thrown by `amdsmi_get_gpu_compute_process_info` function:
 
@@ -3503,6 +3617,7 @@ Field | Description
 `vram_usage` | VRAM usage
 `sdma_usage` | SDMA usage in microseconds
 `cu_occupancy` | Compute Unit usage in percents
+`evicted_time` | Time that queues are evicted on a GPU in milliseconds
 
 Exceptions that can be thrown by `amdsmi_get_gpu_compute_process_info_by_pid` function:
 
@@ -3886,7 +4001,7 @@ Field | Description
 `max_bandwidth` | Maximum XGMI bandwidth (in appropriate units, e.g., GB/s)
 `links` | List of dictionaries, one per XGMI link, each with:
 `bdf` | BDF string for the destination
-`link_type` | Link type
+`link_type` | The connection type as an int. This should be translated according to the enum amdsmi_link_type_t. Refer to the example below for more details.
 `read` | Accumulated read data for this link (e.g., KB)
 `write` | Accumulated write data for this link (e.g., KB)
 
@@ -3908,9 +4023,20 @@ try:
             print(link_metrics['bit_rate'])
             print(link_metrics['max_bandwidth'])
             for idx, link in enumerate(link_metrics['links']):
-                print(f"{idx}: {link['bdf']}, {link['link_type']}, {link['read']} KB, {link['write']} KB")
+                print(f"{idx}: {link['bdf']}, {link['read']} KB, {link['write']} KB")
+                if link_type['link_type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_INTERNAL:
+                    print('internal')
+                if link_type['link_type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_PCIE:
+                    print('pcie')
+                if link_type['link_type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_XGMI:
+                    print('xgmi')
+                if link_type['link_type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_NOT_APPLICABLE:
+                    print('not applicable')
+                if link_type['link_type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_UNKNOWN:
+                    print('unknown')
 except AmdSmiException as e:
     print(e)
+```
 
 ### amdsmi_topo_get_link_type
 
@@ -3925,8 +4051,8 @@ Output:  Dictionary with fields:
 
 Field | Description
 ---|---
-`hops` | number of hops
-`type` | the connection type
+`hops` | Number of hops
+`type` | The connection type as an int. This should be translated according to the enum amdsmi_link_type_t. Refer to the example below for more details.
 
 Exceptions that can be thrown by `amdsmi_topo_get_link_type` function:
 
@@ -3946,7 +4072,16 @@ try:
         processor_handle_dest = devices[1]
         link_type = amdsmi_topo_get_link_type(processor_handle_src, processor_handle_dest)
         print(link_type['hops'])
-        print(link_type['type'])
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_INTERNAL:
+            print('internal')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_PCIE:
+            print('pcie')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_XGMI:
+            print('xgmi')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_NOT_APPLICABLE:
+            print('not applicable')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_UNKNOWN:
+            print('unknown')
 except AmdSmiException as e:
     print(e)
 ```
@@ -3964,7 +4099,7 @@ Output:  Dictionary with fields:
 
 Fields | Description
 ---|---
-`type` | AmdSmiIoLinkType
+`type` | The connection type as an int. This should be translated according to the enum amdsmi_link_type_t. Refer to the example below for more details.
 `cap` | <table><thead><tr> <th> Subfield </th> <th> Description</th> </tr></thead><tbody><tr><td>`is_iolink_coherent`</td><td>1 == True; 0 == False; Uint_max = Undefined</td></tr><tr><td>`is_iolink_atomics_32bit`</td><td>Supports 32bit atomics</td></tr><tr><td>`is_iolink_atomics_64bit`</td><td>Supports 64bit atomics</td></tr><tr><td>`is_iolink_dma`</td><td>Supports DMA</td></tr><tr><td>`is_iolink_bi_directional`</td><td>Is the IOLink Bidirectional</td></tr></tbody></table>
 
 Exceptions that can be thrown by `amdsmi_get_P2P_status` function:
@@ -3984,7 +4119,16 @@ try:
         processor_handle_src = devices[0]
         processor_handle_dest = devices[1]
         link_type = amdsmi_get_P2P_status(processor_handle_src, processor_handle_dest)
-        print(link_type['type'])
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_INTERNAL:
+            print('internal')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_PCIE:
+            print('pcie')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_XGMI:
+            print('xgmi')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_NOT_APPLICABLE:
+            print('not applicable')
+        if link_type['type'] == AmdSmiLinkType.AMDSMI_LINK_TYPE_UNKNOWN:
+            print('unknown')
         print(link_type['caps'])
 except AmdSmiException as e:
     print(e)

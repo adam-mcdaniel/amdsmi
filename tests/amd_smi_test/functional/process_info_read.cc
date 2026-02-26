@@ -20,8 +20,7 @@
  * THE SOFTWARE.
  */
 
-#include <stdint.h>
-#include <stddef.h>
+#include <cstdint>
 
 #include <iostream>
 #include <string>
@@ -29,7 +28,6 @@
 #include <gtest/gtest.h>
 #include "amd_smi/amdsmi.h"
 #include "process_info_read.h"
-#include "../test_common.h"
 
 TestProcInfoRead::TestProcInfoRead() : TestBase() {
   set_title("AMDSMI Process Info Read Test");
@@ -186,6 +184,8 @@ void TestProcInfoRead::Run(void) {
                                    proc_info.sdma_usage <<
                                    " Compute Unit Usage: " <<
                                    proc_info.cu_occupancy <<
+                                   " Evicted Time: " <<
+                                   proc_info.evicted_time << std::endl <<
                                    std::endl;
       }
     }

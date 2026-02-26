@@ -20,14 +20,25 @@
  * THE SOFTWARE.
  */
 
-#ifndef INCLUDE_AMD_SMI_AMD_SMICONFIG_H_
-#define INCLUDE_AMD_SMI_AMD_SMICONFIG_H_
+#include "aca_version.h"
 
-// This file is generated on build.
+/* Implementation of version functions */
 
-#define amd_smi_VERSION_MAJOR @amd_smi_VERSION_MAJOR@
-#define amd_smi_VERSION_MINOR @amd_smi_VERSION_MINOR@
-#define amd_smi_VERSION_PATCH @amd_smi_VERSION_PATCH@
-#define amd_smi_VERSION_BUILD "@amd_smi_VERSION_BUILD@"
+int aca_get_version_major(void) { return RAS_DECODE_VERSION_MAJOR; }
 
-#endif  // INCLUDE_AMD_SMI_AMD_SMICONFIG_H_
+int aca_get_version_minor(void) { return RAS_DECODE_VERSION_MINOR; }
+
+int aca_get_version_patch(void) { return RAS_DECODE_VERSION_PATCH; }
+
+const char *aca_get_version_string(void) { return RAS_DECODE_VERSION_STRING; }
+
+aca_version_info_t aca_get_version_info(void) {
+  aca_version_info_t info;
+
+  info.major = RAS_DECODE_VERSION_MAJOR;
+  info.minor = RAS_DECODE_VERSION_MINOR;
+  info.patch = RAS_DECODE_VERSION_PATCH;
+  info.string = RAS_DECODE_VERSION_STRING;
+
+  return info;
+}

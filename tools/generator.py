@@ -182,6 +182,10 @@ def main():
         new_line = f"""from pathlib import Path
 # {library_name} can be located in several different places.
 # Look for it with below priority:
+# 0. Relative to amdsmi_wrapper.py in TheRock:
+#    `amdsmi_wrapper.py` is located in
+#    `_rocm_sdk_core/share/amd_smi/amdsmi`, libraries are in
+#    `_rocm_sdk_core/lib`.
 # 1. ROCM_HOME/ROCM_PATH environment variables
 #    - ROCM_HOME/lib
 #    - ROCM_PATH/lib (usually set to /opt/rocm/)
@@ -194,6 +198,9 @@ def main():
 def find_smi_library():
     err = OSError("Could not load {library_name}")
     possible_locations = []
+    # 0.
+    libamd_smi_path = Path(__file__).resolve().parent.parent.parent.parent / "lib/libamd_smi.so.26"
+    possible_locations.append(libamd_smi_path)
     # 1.
     rocm_path = os.getenv("ROCM_HOME", os.getenv("ROCM_PATH"))
     if rocm_path:
@@ -220,7 +227,12 @@ try:
     #print(f"found smi lib in [", location, "]")
 except OSError as e:
     print(e)
-    print("Unable to find {library_name} library try installing amd-smi-lib from your package manager")"""
+    print("Unable to find {library_name} library try installing amd-smi-lib from your package manager")
+
+#Add support for amdsmi_free_name_value_pairs
+amdsmi_free_name_value_pairs = _libraries['libamd_smi.so'].amdsmi_free_name_value_pairs
+amdsmi_free_name_value_pairs.restype = None
+amdsmi_free_name_value_pairs.argtypes = [ctypes.POINTER(None)]"""
     else:
         print("Unknown operating system. It is only supporing Linux and Windows.")
         return

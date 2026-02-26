@@ -28,10 +28,22 @@ jobs:
         os: [Ubuntu20, Ubuntu22, Debian10]
     container:
       image: ${{ vars[format('{0}_DOCKER_IMAGE', matrix.os)] }}
-      options: --privileged
+      options: --rm --privileged --device=/dev/kfd --device=/dev/dri --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --shm-size=64G --cap-add=SYS_MODULE -v /lib/modules:/lib/modules
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Update repositories for Debian10
+        if: matrix.os == 'Debian10'
+        run: |
+          set -e
+          echo 'Updating repositories for Debian10 (archived)'
+          cat > /etc/apt/sources.list << EOF
+          deb http://archive.debian.org/debian buster main
+          deb http://archive.debian.org/debian-security buster/updates main
+          EOF
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99-disable-check-valid-until
+          apt update
 
       - name: Build AMDSMI
         run: |
@@ -66,7 +78,7 @@ jobs:
                 echo "All $RETRIES build attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
           echo "Build completed on ${{ matrix.os }}"
@@ -74,7 +86,9 @@ jobs:
       - name: Install AMDSMI
         run: |
           cd $GITHUB_WORKSPACE/build
-          apt update
+          if [ "${{ matrix.os }}" != "Debian10" ]; then
+            apt update
+          fi
 
           RETRIES=3
           for i in $(seq 1 $RETRIES); do
@@ -97,9 +111,10 @@ jobs:
                 echo "All $RETRIES installation attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
+          echo "Build completed on ${{ matrix.os }}"
 
       - name: Uninstall
         if: always()
@@ -122,14 +137,27 @@ jobs:
       - ${{ vars.RUNNER_TYPE }}
     continue-on-error: true
     strategy:
+      max-parallel: 10
       matrix:
         os: [Ubuntu20, Ubuntu22, Debian10]
     container:
       image: ${{ vars[format('{0}_DOCKER_IMAGE', matrix.os)] }}
-      options: --privileged
+      options: --rm --privileged --device=/dev/kfd --device=/dev/dri --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --shm-size=64G --cap-add=SYS_MODULE -v /lib/modules:/lib/modules
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Update repositories for Debian10
+        if: matrix.os == 'Debian10'
+        run: |
+          set -e
+          echo 'Updating repositories for Debian10 (archived)'
+          cat > /etc/apt/sources.list << EOF
+          deb http://archive.debian.org/debian buster main
+          deb http://archive.debian.org/debian-security buster/updates main
+          EOF
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99-disable-check-valid-until
+          apt update
 
       - name: Build and Install for Test
         run: |
@@ -155,13 +183,11 @@ jobs:
                 echo "All $RETRIES build attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
 
           echo 'Installing for test on ${{ matrix.os }}'
-          apt update
-
           for i in $(seq 1 $RETRIES); do
             echo "Installation attempt $i for test on ${{ matrix.os }}..."
             if apt install -y $BUILD_FOLDER/amd-smi-lib*99999-local_amd64.deb; then
@@ -175,7 +201,7 @@ jobs:
                 echo "All $RETRIES installation attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
 
@@ -230,23 +256,33 @@ jobs:
           echo 'Running AMDSMI tests'
           cd /opt/rocm/share/amd_smi/tests
           source amdsmitst.exclude
-          ./amdsmitst --gtest_filter="-$(echo ${BLACKLIST_ALL_ASICS})" > /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log 2>&1
-          TEST_EXIT_CODE=$?
 
-          if [ $TEST_EXIT_CODE -ne 0 ]; then
-            echo "AMDSMI tests failed with exit code $TEST_EXIT_CODE."
-            echo "=============== TEST OUTPUT ==============="
-            cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
-            echo "=============================================="
-            echo "AMDSMI tests failed"
-            exit $TEST_EXIT_CODE
-          else
-            echo "AMDSMI tests passed"
-            echo "=============== TEST OUTPUT ==============="
-            cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
-            echo "=============================================="
-            echo "AMDSMI tests done"
-          fi
+          AMDSMI_RETRIES=3
+          for attempt in $(seq 1 $AMDSMI_RETRIES); do
+            echo "AMDSMI test attempt $attempt for ${{ matrix.os }}..."
+            if ./amdsmitst --gtest_filter="-$(echo ${BLACKLIST_ALL_ASICS})" > /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log 2>&1; then
+              echo "AMDSMI tests passed on attempt $attempt"
+              echo "=============== TEST OUTPUT ==============="
+              cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
+              echo "=============================================="
+              echo "AMDSMI tests done"
+              break
+            else
+              TEST_EXIT_CODE=$?
+              echo "AMDSMI tests failed on attempt $attempt with exit code $TEST_EXIT_CODE"
+              if [ $attempt -eq $AMDSMI_RETRIES ]; then
+                echo "All $AMDSMI_RETRIES AMDSMI test attempts failed. Final failure."
+                echo "=============== TEST OUTPUT ==============="
+                cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
+                echo "=============================================="
+                echo "AMDSMI tests failed"
+                exit $TEST_EXIT_CODE
+              else
+                echo "Retrying AMDSMI tests in $((2 * attempt)) seconds..."
+                sleep $((2 * attempt))
+              fi
+            fi
+          done
 
           # Python Tests
           echo 'Running Python tests'
@@ -334,7 +370,7 @@ jobs:
           - AlmaLinux8
     container:
       image: ${{ vars[format('{0}_DOCKER_IMAGE', matrix.os)] }}
-      options: --privileged
+      options: --rm --privileged --device=/dev/kfd --device=/dev/dri --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --shm-size=64G --cap-add=SYS_MODULE -v /lib/modules:/lib/modules
 
     steps:
       - uses: actions/checkout@v4
@@ -386,7 +422,7 @@ jobs:
                 echo "All $RETRIES build attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
           echo "Build completed on ${{ matrix.os }}"
@@ -425,7 +461,7 @@ jobs:
                 echo "All $RETRIES build attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
           echo "Build completed on ${{ matrix.os }}"
@@ -456,7 +492,7 @@ jobs:
                 echo "All $RETRIES installation attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
 
@@ -519,12 +555,13 @@ jobs:
 
   rpm-test:
     name: Tests
-    needs: rpm-buildinstall
+    needs: [rpm-buildinstall, debian-test]  # debian-test is needed to complete before rpm-test starts (see comment about driver reloads)
     runs-on:
       - self-hosted
       - ${{ vars.RUNNER_TYPE }}
     continue-on-error: true
     strategy:
+      max-parallel: 10
       matrix:
         os:
           - SLES
@@ -535,7 +572,7 @@ jobs:
           - AlmaLinux8
     container:
       image: ${{ vars[format('{0}_DOCKER_IMAGE', matrix.os)] }}
-      options: --privileged
+      options: --rm --privileged --device=/dev/kfd --device=/dev/dri --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --shm-size=64G --cap-add=SYS_MODULE -v /lib/modules:/lib/modules
 
     steps:
       - uses: actions/checkout@v4
@@ -567,7 +604,7 @@ jobs:
           BUILD_FOLDER=$GITHUB_WORKSPACE/build
           RETRIES=5
 
-          # Set QA_RPATHS to ignore empty (0x0010) and invalid (0x0002) RPATHs
+          # Set QA_RPATHS to ignore empty (0x0010 | 0x0002) RPATHs
           export QA_RPATHS=$((0x0010 | 0x0002))
 
           for i in $(seq 1 $RETRIES); do
@@ -587,7 +624,7 @@ jobs:
                 echo "All $RETRIES build attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
 
@@ -607,7 +644,7 @@ jobs:
                 echo "All $RETRIES installation attempts failed. Exiting."
                 exit 1
               fi
-              sleep $((2 ** (i - 1)))
+              sleep $((2 * i))
             fi
           done
 
@@ -702,23 +739,33 @@ jobs:
           echo 'Running AMDSMI tests'
           cd /opt/rocm/share/amd_smi/tests
           source amdsmitst.exclude
-          ./amdsmitst --gtest_filter="-$(echo ${BLACKLIST_ALL_ASICS})" > /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log 2>&1
-          TEST_EXIT_CODE=$?
 
-          if [ $TEST_EXIT_CODE -ne 0 ]; then
-            echo "AMDSMI tests failed with exit code $TEST_EXIT_CODE."
-            echo "=============== TEST OUTPUT ==============="
-            cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
-            echo "=============================================="
-            echo "AMDSMI tests failed"
-            exit $TEST_EXIT_CODE
-          else
-            echo "AMDSMI tests passed"
-            echo "=============== TEST OUTPUT ==============="
-            cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
-            echo "=============================================="
-            echo "AMDSMI tests done"
-          fi
+          AMDSMI_RETRIES=3
+          for attempt in $(seq 1 $AMDSMI_RETRIES); do
+            echo "AMDSMI test attempt $attempt for ${{ matrix.os }}..."
+            if ./amdsmitst --gtest_filter="-$(echo ${BLACKLIST_ALL_ASICS})" > /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log 2>&1; then
+              echo "AMDSMI tests passed on attempt $attempt"
+              echo "=============== TEST OUTPUT ==============="
+              cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
+              echo "=============================================="
+              echo "AMDSMI tests done"
+              break
+            else
+              TEST_EXIT_CODE=$?
+              echo "AMDSMI tests failed on attempt $attempt with exit code $TEST_EXIT_CODE"
+              if [ $attempt -eq $AMDSMI_RETRIES ]; then
+                echo "All $AMDSMI_RETRIES AMDSMI test attempts failed. Final failure."
+                echo "=============== TEST OUTPUT ==============="
+                cat /tmp/test-results-${{ matrix.os }}/amdsmi_tests.log | grep -E "\[==========\]|\[  PASSED  \]|\[  SKIPPED \]|\[  FAILED  \]"
+                echo "=============================================="
+                echo "AMDSMI tests failed"
+                exit $TEST_EXIT_CODE
+              else
+                echo "Retrying AMDSMI tests in $((2 * attempt)) seconds..."
+                sleep $((2 * attempt))
+              fi
+            fi
+          done
 
           # Python Tests
           echo 'Running Python tests'

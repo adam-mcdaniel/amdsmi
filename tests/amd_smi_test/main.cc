@@ -21,12 +21,7 @@
  */
 #include <gtest/gtest.h>
 
-#include <string>
-#include <vector>
-#include <memory>
-#include <iostream>
 
-#include "amd_smi/amdsmi.h"
 #include "rocm_smi/rocm_smi_utils.h"
 #include "amd_smi/impl/amd_smi_utils.h"
 #include "test_common.h"
@@ -42,6 +37,7 @@
 #include "functional/process_info_read.h"
 #include "functional/gpu_busy_read.h"
 #include "functional/gpu_metrics_read.h"
+#include "functional/gpu_partition_metrics_read.h"
 #include "functional/err_cnt_read.h"
 #include "functional/power_read.h"
 #include "functional/power_read_write.h"
@@ -63,8 +59,6 @@
 #include "functional/id_info_read.h"
 #include "functional/metrics_counter_read.h"
 #include "functional/version_read.h"
-#include "functional/mutual_exclusion.h"
-#include "functional/init_shutdown_refcount.h"
 #include "functional/memorypartition_read_write.h"
 #include "functional/computepartition_read_write.h"
 #include "functional/gpu_cache_read.h"
@@ -229,6 +223,10 @@ TEST(amdsmitstReadOnly, TestHWTopologyRead) {
 }
 TEST(amdsmitstReadOnly, TestGpuMetricsRead) {
   TestGpuMetricsRead tst;
+  RunGenericTest(&tst);
+}
+TEST(amdsmitstReadOnly, TestGpuPartitionMetricsRead) {
+  TestGpuPartitionMetricsRead tst;
   RunGenericTest(&tst);
 }
 TEST(amdsmitstReadOnly, TestMetricsCounterRead) {

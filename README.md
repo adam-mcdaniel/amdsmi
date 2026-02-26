@@ -9,13 +9,14 @@ documentation at [rocm.docs.amd.com/projects/amdsmi](https://rocm.docs.amd.com/p
 
 >[!NOTE]
 >This project is a successor to [rocm_smi_lib](https://github.com/ROCm/rocm_smi_lib)
->and [esmi_ib_library](https://github.com/amd/esmi_ib_library).
+>and [esmi_ib_library](https://github.com/amd/esmi_ib_library).  
+>This project is applicable to Linux Baremetal and Linux VM(Guest). To use AMD SMI for Virtualization, please refer to [AMD-SMI Virtualization](https://github.com/amd/MxGPU-Virtualization/tree/mainline/smi-lib).
 
 ## Supported platforms
 
-At initial release, the AMD SMI library will support Linux bare metal and Linux
-virtual machine guest for AMD GPUs. In a future release, the library will be
-extended to support AMD EPYC™ CPUs.
+The AMD SMI library supports Linux bare metal and Linux virtual machine guest
+for AMD GPUs and AMD EPYC™ CPUs via
+[esmi_ib_library](https://github.com/amd/esmi_ib_library).
 
 AMD SMI library can run on AMD ROCm supported platforms, refer to
 [System requirements (Linux)](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html)
@@ -29,7 +30,7 @@ for more information.
 
 The following are required to install and use the AMD SMI library through its language interfaces and CLI.
 
-* `amdgpu` driver must be loaded for [`amdsmi_init()`](./docs/how-to/amdsmi-cpp-lib#hello-amd-smi) to work.
+* `amdgpu` driver must be loaded for [`amdsmi_init()`](./docs/how-to/amdsmi-cpp-lib#hello-amd-smi) to work. Refer to the [Instinct documentation](https://instinct.docs.amd.com/projects/amdgpu-docs/en/latest/install/detailed-install/prerequisites.html) for installation instructions.
 * Export `LD_LIBRARY_PATH` to the `amdsmi` installation directory.
 
   ```bash
@@ -49,51 +50,6 @@ sudo python3 -m pip install more_itertools
 ### Go API prerequisites
 
 * Go version 1.20 or greater
-
-## Install amdgpu driver and AMD SMI with ROCm
-
-1. Get the `amdgpu-install` installer following the instructions for your Linux distribution at
-   [Installation via AMDGPU installer](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/amdgpu-install.html#installation).
-
-2. Use `amdgpu-install` to install the `amdgpu` driver and ROCm packages with
-   AMD SMI included.
-
-   ``` shell
-   sudo amdgpu-install --usecase=rocm
-   ```
-
-   The `amdgpu-install --usecase=rocm` option triggers both an `amdgpu` driver
-   update and AMD SMI packages to be installed on your device.
-
-3. Verify your installation.
-
-   ```shell
-   amd-smi --help
-   ```
-
-## Install AMD SMI without ROCm
-
-The following are example steps to install the AMD SMI libraries and CLI tool on
-Ubuntu 22.04.
-
-1. Install the library.
-
-   ```shell
-   sudo apt install amd-smi-lib
-   ```
-
-2. Add the installation directory to your PATH. If installed with ROCm, ignore
-   this step.
-
-   ```shell
-   export PATH="${PATH:+${PATH}:}~/opt/rocm/bin"
-   ```
-
-3. Verify your installation.
-
-   ```shell
-   amd-smi --help
-   ```
 
 ## AMD SMI basic usage
 

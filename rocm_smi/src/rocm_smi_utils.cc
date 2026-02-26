@@ -22,8 +22,8 @@
 
 #define _GNU_SOURCE 1 // REQUIRED: to utilize some GNU features/functions, see
                       // _GNU_SOURCE functions which check
-#include <assert.h>
-#include <errno.h>
+#include <cassert>
+#include <cerrno>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -46,7 +46,6 @@
 #include <cmath>
 
 #include "rocm_smi/rocm_smi.h"
-#include "rocm_smi/rocm_smi_kfd.h"
 #include "rocm_smi/rocm_smi_utils.h"
 #include "rocm_smi/rocm_smi_exception.h"
 #include "rocm_smi/rocm_smi_main.h"
@@ -54,8 +53,7 @@
 #include "rocm_smi/rocm_smi_logger.h"
 
 
-namespace amd {
-namespace smi {
+namespace amd::smi {
 const std::string kTmpFilePrefix = "rocmsmi_";
 
 // Return 0 if same file, 1 if not, and -1 for error
@@ -1283,18 +1281,25 @@ void system_wait(int milli_seconds) {
   auto start = std::chrono::high_resolution_clock::now();
   // 1 ms = 1000 us
   int waitTime = milli_seconds * 1000;
-  ss << __PRETTY_FUNCTION__ << " | "
-     << "** Waiting for " << std::dec << waitTime
-     << " us (" << waitTime/1000 << " milli-seconds) **";
-  LOG_DEBUG(ss);
+  // Attempting to speed up processing time
+  bool is_logger_enabled = ROCmLogging::Logger::getInstance()->isLoggerEnabled();
+  if (is_logger_enabled) {
+    ss << __PRETTY_FUNCTION__ << " | "
+       << "** Waiting for " << std::dec << waitTime
+       << " us (" << waitTime/1000 << " milli-seconds) **";
+    LOG_DEBUG(ss);
+  }
+
   usleep(waitTime);
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  ss << __PRETTY_FUNCTION__ << " | "
-     << "** Waiting took " << duration.count() / 1000
-     << " milli-seconds **";
-  LOG_DEBUG(ss);
+  if (is_logger_enabled) {
+    ss << __PRETTY_FUNCTION__ << " | "
+       << "** Waiting took " << duration.count() / 1000
+       << " milli-seconds **";
+    LOG_DEBUG(ss);
+  }
 }
 
 int countDigit(uint64_t n) {
@@ -1331,5 +1336,4 @@ uint64_t get_multiplier_from_char(char units_char) {
   return multiplier;
 }
 
-}  // namespace smi
-}  // namespace amd
+} // namespace amd::smi

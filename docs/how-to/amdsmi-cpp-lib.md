@@ -21,6 +21,18 @@ variable to the directory containing ``librocm_smi64.so`` (usually
 ``/opt/rocm/lib``) or by passing the ``-lamd_smi`` flag to the compiler.
 ```
 
+```{note}
+The environment variable ``AMDSMI_GPU_METRICS_CACHE_MS`` may be set to
+control the internal GPU metrics cache duration (ms). 
+Default 1, set to 0 to disable.
+```
+
+```{note}
+The environment variable ``AMDSMI_ASIC_INFO_CACHE_MS`` may be set to
+control the internal GPU asic info cache duration (ms). 
+Default 10000 ms, set to 0 to disable.
+```
+
 ```{seealso}
 Refer to the [C++ library API reference](../reference/amdsmi-cpp-api.md).
 ```
@@ -62,7 +74,7 @@ driver and make sure that any resources held by AMD SMI are released.
 1. A simple "Hello World" type program that displays the temperature of detected
    devices.
 
-   ```note
+   ```{note}
    Sample build example:
    $ g++ -I/opt/rocm/include <file_name>.cc -L/opt/rocm/lib -lamd_smi -o <filename>
 
@@ -152,7 +164,7 @@ driver and make sure that any resources held by AMD SMI are released.
 
 2. A sample program that displays the power of detected CPUs.
 
-   ```note
+   ```{note}
    Sample build example:
    $ g++ -DENABLE_ESMI -I/opt/rocm/include <file_name>.cc -L/opt/rocm/lib -lamd_smi -o <filename>
 

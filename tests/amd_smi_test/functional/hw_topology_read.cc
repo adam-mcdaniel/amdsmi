@@ -20,10 +20,11 @@
  * THE SOFTWARE.
  */
 
-#include <inttypes.h>
-#include <stdint.h>
-#include <stddef.h>
+#include <cinttypes>
+#include <cstdint>
+#include <cstdio>
 
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -31,7 +32,6 @@
 #include <gtest/gtest.h>
 #include "amd_smi/amdsmi.h"
 #include "hw_topology_read.h"
-#include "../test_common.h"
 
 typedef struct {
   std::string type;
@@ -433,7 +433,7 @@ void TestHWTopologyRead::Run(void) {
   }
   std::cout << std::endl;
 
-  char *topology_link_type_str[] = {
+  std::string topology_link_type_str[] = {
       "AMDSMI_LINK_TYPE_INTERNAL",
       "AMDSMI_LINK_TYPE_XGMI",
       "AMDSMI_LINK_TYPE_PCIE",

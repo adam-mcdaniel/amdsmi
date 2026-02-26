@@ -49,7 +49,8 @@ class AMDSMIParserHelpFormatter(argparse.HelpFormatter):
 # Custom Help Formatter for not duplicating the metavar in the subparsers
 class AMDSMISubparserHelpFormatter(argparse.RawTextHelpFormatter):
     def __init__(self, prog):
-        super().__init__(prog, max_help_position=80, width=90)
+        super().__init__(prog, indent_increment=2, max_help_position=80, width=90)
+        self._action_max_length = 20
 
     def _format_action_invocation(self, action):
         if not action.option_strings or action.nargs == 0:
@@ -69,10 +70,15 @@ class AMDSMIParser(argparse.ArgumentParser):
     """
     def __init__(self, version, list, static, firmware, bad_pages, metric,
                  process, profile, event, topology, set_value, reset, monitor,
-                 xgmi, partition, ras, default):
+                 xgmi, partition, ras, node, default, sys_argv=None,
+                 helpers=None):
 
         # Helper variables
-        self.helpers = AMDSMIHelpers()
+        if helpers is None:
+            # If helpers is not provided, create a new instance
+            self.helpers = AMDSMIHelpers()
+        else:
+            self.helpers = helpers
 
         # Get choices based on driver initialized
         if self.helpers.is_amdgpu_initialized():
@@ -92,18 +98,20 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         self.vf_choices = ['3', '2', '1']
 
-        version_string = f"Version: {__version__}"
-        platform_string = f"Platform: {self.helpers.os_info()}"
-        rocm_version = self.helpers.get_rocm_version()
-        rocm_version_string = f"ROCm version: {rocm_version}"
-        program_name = 'amd-smi'
+        self.version_string = f"Version: {__version__}"
+        self.platform_string = f"Platform: {self.helpers.os_info()}"
+        self.rocm_version = self.helpers.get_rocm_version()
+        self.rocm_version_string = f"ROCm version: {self.rocm_version}"
+        self.program_name = 'amd-smi'
+        self.description = f"AMD System Management Interface | {self.version_string} | {self.rocm_version_string} | {self.platform_string}"
 
         # Adjust argument parser options
         super().__init__(
             formatter_class= lambda prog: AMDSMIParserHelpFormatter(prog),
-            description=f"AMD System Management Interface | {version_string} | {rocm_version_string} | {platform_string}",
+            description=self.description,
+            epilog="For detailed help on specific commands: amd-smi [command] -h",
             add_help=True,
-            prog=program_name)
+            prog=self.program_name)
 
         # Setup subparsers
         self.subparsers = self.add_subparsers(
@@ -115,28 +123,66 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Store possible subcommands & aliases for later errors
         self.possible_commands = ['version', 'list', 'static', 'firmware', 'ucode', 'bad-pages',
                                   'metric', 'process', 'profile', 'event', 'topology', 'set',
-                                  'reset', 'monitor', 'dmon', 'xgmi', 'partition', 'ras', 'default']
+                                  'reset', 'monitor', 'dmon', 'xgmi', 'partition', 'ras',
+                                  'node', 'default']
 
         # Add all subparsers
-        self._add_version_parser(self.subparsers, version)
-        self._add_list_parser(self.subparsers, list)
-        self._add_static_parser(self.subparsers, static)
-        self._add_firmware_parser(self.subparsers, firmware)
-        self._add_bad_pages_parser(self.subparsers, bad_pages)
-        self._add_metric_parser(self.subparsers, metric)
-        self._add_process_parser(self.subparsers, process)
-        self._add_profile_parser(self.subparsers, profile)
-        self._add_event_parser(self.subparsers, event)
-        self._add_topology_parser(self.subparsers, topology)
-        self._add_set_value_parser(self.subparsers, set_value)
-        self._add_reset_parser(self.subparsers, reset)
-        self._add_monitor_parser(self.subparsers, monitor)
-        self._add_xgmi_parser(self.subparsers, xgmi)
-        self._add_partition_parser(self.subparsers, partition)
-        self._add_ras_parser(self.subparsers, ras)
-
-        # the default command
-        self._add_default_parser(self.subparsers, default)
+        if sys_argv is not None:
+            if any(arg in sys_argv for arg in ['--help', '-h']):
+                self._add_version_parser(self.subparsers, version)
+                self._add_list_parser(self.subparsers, list)
+                self._add_static_parser(self.subparsers, static)
+                self._add_firmware_parser(self.subparsers, firmware)
+                self._add_bad_pages_parser(self.subparsers, bad_pages)
+                self._add_metric_parser(self.subparsers, metric)
+                self._add_process_parser(self.subparsers, process)
+                self._add_profile_parser(self.subparsers, profile)
+                self._add_event_parser(self.subparsers, event)
+                self._add_topology_parser(self.subparsers, topology)
+                self._add_set_value_parser(self.subparsers, set_value)
+                self._add_reset_parser(self.subparsers, reset)
+                self._add_monitor_parser(self.subparsers, monitor)
+                self._add_xgmi_parser(self.subparsers, xgmi)
+                self._add_partition_parser(self.subparsers, partition)
+                self._add_ras_parser(self.subparsers, ras)
+                self._add_node_parser(self.subparsers, node)
+            elif any(arg in sys_argv for arg in ['version']):
+                self._add_version_parser(self.subparsers, version)
+            elif any(arg in sys_argv for arg in ['list']):
+                self._add_list_parser(self.subparsers, list)
+            elif any(arg in sys_argv for arg in ['static']):
+                self._add_static_parser(self.subparsers, static)
+            elif any(arg in sys_argv for arg in ['firmware', 'ucode']):
+                self._add_firmware_parser(self.subparsers, firmware)
+            elif any(arg in sys_argv for arg in ['bad-pages']):
+                self._add_bad_pages_parser(self.subparsers, bad_pages)
+            elif any(arg in sys_argv for arg in ['metric']):
+                self._add_metric_parser(self.subparsers, metric)
+            elif any(arg in sys_argv for arg in ['process']):
+                self._add_process_parser(self.subparsers, process)
+            elif any(arg in sys_argv for arg in ['profile']):
+                self._add_profile_parser(self.subparsers, profile)
+            elif any(arg in sys_argv for arg in ['event']):
+                self._add_event_parser(self.subparsers, event)
+            elif any(arg in sys_argv for arg in ['topology']):
+                self._add_topology_parser(self.subparsers, topology)
+            elif any(arg in sys_argv for arg in ['set']):
+                self._add_set_value_parser(self.subparsers, set_value)
+            elif any(arg in sys_argv for arg in ['reset']):
+                self._add_reset_parser(self.subparsers, reset)
+            elif any(arg in sys_argv for arg in ['monitor', 'dmon']):
+                self._add_monitor_parser(self.subparsers, monitor)
+            elif any(arg in sys_argv for arg in ['xgmi']):
+                self._add_xgmi_parser(self.subparsers, xgmi)
+            elif any(arg in sys_argv for arg in ['partition']):
+                self._add_partition_parser(self.subparsers, partition)
+            elif any(arg in sys_argv for arg in ['ras']):
+                self._add_ras_parser(self.subparsers, ras)
+            elif any(arg in sys_argv for arg in ['node']):
+                self._add_node_parser(self.subparsers, node)
+            else:
+                # If no subcommand is given, add the default parser
+                self._add_default_parser(self.subparsers, default)
 
     def _not_negative_int(self, int_value, sub_arg=None):
         # Argument type validator
@@ -147,7 +193,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         if int_value == "":
             raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException(sub_arg, outputformat)
         else:
-            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(int_value, outputformat)
+            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], int_value, outputformat)
 
 
     def _positive_int(self, int_value, sub_arg=None):
@@ -160,7 +206,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         if int_value == "":
             raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException(sub_arg, outputformat)
         else:
-            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(int_value, outputformat)
+            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], int_value, outputformat)
 
 
     def _is_valid_string(self, string_value, sub_arg=None):
@@ -173,15 +219,16 @@ class AMDSMIParser(argparse.ArgumentParser):
         if string_value == "":
             raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException(sub_arg, outputformat)
         else:
-            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(string_value, outputformat)
+            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], string_value, outputformat)
 
 
     def _is_command_supported(self, user_input, acceptable_values, command_name):
         if acceptable_values == "N/A":
-            raise amdsmi_cli_exceptions.AmdSmiCommandNotSupportedException(command_name, self.helpers.get_output_format())
+            outputformat = self.helpers.get_output_format()
+            raise amdsmi_cli_exceptions.AmdSmiPermissionDeniedException(command_name, outputformat)
         elif str(user_input).upper() not in acceptable_values:
             print(f"Valid inputs are {acceptable_values}")
-            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(str(user_input).upper(), self.helpers.get_output_format())
+            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], str(user_input).upper(), self.helpers.get_output_format())
         else:
             return str(user_input).upper()
 
@@ -200,16 +247,16 @@ class AMDSMIParser(argparse.ArgumentParser):
 
                 # Check if the sclk and mclk parameters are valid
                 if clk_type not in valid_clk_types:
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(clk_type, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(sys.argv[1], clk_type, output_format)
                 if lim_type not in valid_lim_types:
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(lim_type, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(sys.argv[1], lim_type, output_format)
 
                 # Check if the val is a valid integer value
                 if not val.isdigit():
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(val, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], val, output_format)
                 val = int(val)
                 if val < 0:
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(val, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], val, output_format)
                 clk_limit_args = collections.namedtuple('clk_limit_args', ['clk_type', 'lim_type', 'val'])
                 setattr(namespace, self.dest, clk_limit_args(clk_type, lim_type, val))
         return AMDSMILimitArgs
@@ -229,21 +276,45 @@ class AMDSMIParser(argparse.ArgumentParser):
 
                 # Check if the sclk and mclk parameters are valid
                 if clk_type not in valid_clk_types:
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(clk_type, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(sys.argv[1], clk_type, output_format)
 
                 perf_levels = []
                 # Check if every item in perf level is valid
                 for level in perf_levels_str:
                     if not level.isdigit():
-                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(level, output_format)
+                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], level, output_format)
                     level = int(level)
                     if level < 0:
-                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(level, output_format)
+                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], level, output_format)
                     perf_levels.append(level)
 
                 clk_level_args = collections.namedtuple('clk_level_args', ['clk_type', 'perf_levels'])
                 setattr(namespace, self.dest, clk_level_args(clk_type, perf_levels))
         return AMDSMIFreqArgs
+
+
+    def _power_cap_options(self):
+        """Custom action for setting power cap options"""
+        output_format = self.helpers.get_output_format()
+
+        class AMDSMIPowerCapArgs(argparse.Action):
+            def __call__(self, parser: AMDSMIParser, namespace: argparse.Namespace,
+                         values: list, option_string: Optional[str] = None) -> None:
+                if len(values) != 2:
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(sys.argv[1], values, output_format)
+
+                power_cap_type = values[0]
+                power_cap_value = values[1]
+
+                if power_cap_type not in ['ppt0', 'ppt1']:
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(sys.argv[1], power_cap_type, output_format)
+
+                if not power_cap_value.isdigit():
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], power_cap_value, output_format)
+
+                power_cap_args = collections.namedtuple('power_cap_args', ['pwr_type', 'watts'])
+                setattr(namespace, self.dest, power_cap_args(power_cap_type, int(power_cap_value)))
+        return AMDSMIPowerCapArgs
 
 
     def _check_folder_path(self):
@@ -367,7 +438,7 @@ class AMDSMIParser(argparse.ArgumentParser):
                     if selected_device_handles == '':
                         raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--gpu", _GPUSelectAction.outputformat)
                     elif not gpu_format:
-                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(selected_device_handles,
+                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], selected_device_handles,
                                                                                          _GPUSelectAction.outputformat)
                     else:
                         raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles,
@@ -397,7 +468,7 @@ class AMDSMIParser(argparse.ArgumentParser):
                     if selected_device_handles == '':
                         raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--cpu", _CPUSelectAction.outputformat)
                     elif not cpu_format:
-                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(selected_device_handles,
+                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], selected_device_handles,
                                                                                          _CPUSelectAction.outputformat)
                     else:
                         raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles,
@@ -426,7 +497,7 @@ class AMDSMIParser(argparse.ArgumentParser):
                     if selected_device_handles == '':
                         raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--core", _CoreSelectAction.outputformat)
                     elif not core_format:
-                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(selected_device_handles,
+                        raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], selected_device_handles,
                                                                                          _CoreSelectAction.outputformat)
                     else:
                         raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles,
@@ -460,15 +531,15 @@ class AMDSMIParser(argparse.ArgumentParser):
             if value.isdigit():
                 if int(value) < 0:
                     outputformat = self.helpers.get_output_format()
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(value, outputformat)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], value, outputformat)
             else:
                 outputformat = self.helpers.get_output_format()
-                raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(value, outputformat)
+                raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], value, outputformat)
 
         if isinstance(value, int):
             if int(value) < 0:
                 outputformat = self.helpers.get_output_format()
-                raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(value, outputformat)
+                raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(sys.argv[1], value, outputformat)
 
         return value
 
@@ -513,6 +584,17 @@ class AMDSMIParser(argparse.ArgumentParser):
                 setattr(args, self.dest, values)
         return _PromptSpecWarning
 
+    @staticmethod
+    def _custom_ceil(x):
+        """ Custom ceiling function to round up float values to the nearest integer.
+            This is used to ensure that fan speed percentages are rounded up correctly.
+        """
+        if x == int(x):  # If x is already an integer
+            return int(x)
+        elif x > 0:  # For positive numbers, floor division + 1
+            return int(x) + 1
+        else:  # For negative numbers, floor division directly gives the ceiling
+            return int(x)
 
     def _validate_fan_speed(self):
         """ Validate fan speed input"""
@@ -525,7 +607,9 @@ class AMDSMIParser(argparse.ArgumentParser):
                     if '%' in values:
                         try:
                             amdsmi_helpers.confirm_out_of_spec_warning()
-                            values = int(int(values[:-1]) / 100 * 255)
+                            # Convert percentage to fan speed level 
+                            values = (int(values[:-1]) / 100) * 255
+                            values = AMDSMIParser._custom_ceil(values) # Round up (Ceiling)
                             setattr(args, self.dest, values)
                         except ValueError as e:
                             raise argparse.ArgumentError(self, f"Invalid argument: '{values}' needs to be 0-100%")
@@ -657,9 +741,10 @@ class AMDSMIParser(argparse.ArgumentParser):
     def _add_version_parser(self, subparsers: argparse._SubParsersAction, func):
         # Subparser help text
         version_help = "Display version information"
+        description = self.description
 
         # Create version subparser
-        version_parser = subparsers.add_parser('version', help=version_help, description=None)
+        version_parser = subparsers.add_parser('version', help=version_help, description=description)
         version_parser._optionals.title = None
         version_parser.formatter_class=lambda prog: AMDSMISubparserHelpFormatter(prog)
         version_parser.set_defaults(func=func)
@@ -669,7 +754,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # help info
         gpu_version_help = "Display the current amdgpu driver version"
-        cpu_version_help = "Display the current amd_hsmp driver version"
+        cpu_version_help = "Display the current amd_hsmp or hsmp_acpi driver version"
 
         # Add GPU and CPU version Arguments
         version_parser.add_argument('-g', '--gpu_version', action='store_true', required=False, help=gpu_version_help, default=None)
@@ -684,7 +769,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         list_help = "List GPU information"
         list_optionals_title = "List Arguments"
-        list_subcommand_help = "Lists all detected devices on the system.\
+        list_subcommand_help = f"{self.description}\n\nLists all detected devices on the system.\
                             \nLists the BDF, UUID, KFD_ID, NODE_ID, and Partition ID for each GPU and/or CPUs.\
                             \nIn virtualization environments, it can also list VFs associated to each\
                             \nGPU with some basic information for each VF."
@@ -708,14 +793,14 @@ class AMDSMIParser(argparse.ArgumentParser):
     def _add_static_parser(self, subparsers: argparse._SubParsersAction, func):
         # Subparser help text
         static_help = "Gets static information about the specified GPU"
-        static_subcommand_help = "If no GPU is specified, returns static information for all GPUs on the system.\
+        static_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns static information for all GPUs on the system.\
                                 \nIf no static argument is provided, all static information will be displayed."
         static_optionals_title = "Static Arguments"
 
         # Optional arguments help text
         asic_help = "All asic information"
         bus_help = "All bus information"
-        vbios_help = "All video bios information (if available)"
+        vbios_help = "All video bios/IFWI information (if available)"
         limit_help = "All limit metric values (i.e. power and thermal limits)"
         driver_help = "Displays driver version"
         vram_help = "All vram information"
@@ -733,7 +818,10 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Might be able to remove Sudo requirement in ROCm 7.0
         ras_help = "Displays RAS features information;\n\tSudo may be required for some features"
         numa_help = "All numa node information" # Linux Baremetal only
-        partition_help = "Partition information"
+        partition_help = "Partition information:\n\t" \
+        "No longer available in default output.\n\tArgument is required to display." \
+        "\n\tEx. `amd-smi static -p` or use" \
+        "\n\t`amd-smi partition -c -m`/`sudo amd-smi partition -a`"
 
         # Options arguments help text for Hypervisors
         dfc_help = "All DFC FW table information"
@@ -754,7 +842,9 @@ class AMDSMIParser(argparse.ArgumentParser):
         if self.helpers.is_amdgpu_initialized():
             static_parser.add_argument('-a', '--asic', action='store_true', required=False, help=asic_help)
             static_parser.add_argument('-b', '--bus', action='store_true', required=False, help=bus_help)
-            static_parser.add_argument('-V', '--vbios', action='store_true', required=False, help=vbios_help)
+            # Accept vbios args without displaying them
+            static_parser.add_argument('-V', '--vbios', dest='vbios', action='store_true', required=False, help=argparse.SUPPRESS)
+            static_parser.add_argument('-I', '--ifwi', dest='vbios', action='store_true', required=False, help=vbios_help)
             static_parser.add_argument('-d', '--driver', action='store_true', required=False, help=driver_help)
             static_parser.add_argument('-v', '--vram', action='store_true', required=False, help=vram_help)
             static_parser.add_argument('-c', '--cache', action='store_true', required=False, help=cache_help)
@@ -797,7 +887,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         firmware_help = "Gets firmware information about the specified GPU"
-        firmware_subcommand_help = "If no GPU is specified, return firmware information for all GPUs on the system."
+        firmware_subcommand_help = f"{self.description}\n\nIf no GPU is specified, return firmware information for all GPUs on the system."
         firmware_optionals_title = "Firmware Arguments"
 
         # Optional arguments help text
@@ -834,7 +924,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         bad_pages_help = "Gets bad page information about the specified GPU"
-        bad_pages_subcommand_help = "If no GPU is specified, return bad page information for all GPUs on the system."
+        bad_pages_subcommand_help = f"{self.description}\n\nIf no GPU is specified, return bad page information for all GPUs on the system."
         bad_pages_optionals_title = "Bad Pages Arguments"
 
         # Optional arguments help text
@@ -857,11 +947,10 @@ class AMDSMIParser(argparse.ArgumentParser):
         self._add_device_arguments(bad_pages_parser, required=False)
         self._add_command_modifiers(bad_pages_parser)
 
-
     def _add_metric_parser(self, subparsers: argparse._SubParsersAction, func):
         # Subparser help text
         metric_help = "Gets metric/performance information about the specified GPU"
-        metric_subcommand_help = "If no GPU is specified, returns metric information for all GPUs on the system.\
+        metric_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns metric information for all GPUs on the system.\
                                 \nIf no metric argument is provided, all metric information will be displayed."
         metric_optionals_title = "Metric arguments"
 
@@ -879,6 +968,8 @@ class AMDSMIParser(argparse.ArgumentParser):
         ecc_blocks_help = "Number of ECC errors per block"
         pcie_help = "Current PCIe speed, width, and replay count"
         voltage_help = "GPU voltage"
+        base_board_help = "base_board temperatures"
+        gpu_board_help = "gpu_board temperatures"
 
         # Help text for Arguments only on Linux Baremetal platforms
         fan_help = "Current fan speed"
@@ -945,6 +1036,8 @@ class AMDSMIParser(argparse.ArgumentParser):
                 metric_parser.add_argument('-e', '--ecc', action='store_true', required=False, help=ecc_help)
                 metric_parser.add_argument('-k', '--ecc-blocks', action='store_true', required=False, help=ecc_blocks_help)
                 metric_parser.add_argument('-V', '--voltage', action='store_true', required=False, help=voltage_help)
+                metric_parser.add_argument('-b', '--base-board', action='store_true', required=False, help=base_board_help, default=False)
+                metric_parser.add_argument('-G', '--gpu-board', action='store_true', required=False, help=gpu_board_help, default=False)
 
             # Options that only apply to Hypervisors and Baremetal Linux
             if self.helpers.is_hypervisor() or (self.helpers.is_baremetal() and self.helpers.is_linux()):
@@ -958,9 +1051,11 @@ class AMDSMIParser(argparse.ArgumentParser):
                 metric_parser.add_argument('-l', '--perf-level', action='store_true', required=False, help=perf_level_help)
                 metric_parser.add_argument('-x', '--xgmi-err', action='store_true', required=False, help=xgmi_err_help)
                 metric_parser.add_argument('-E', '--energy', action='store_true', required=False, help=energy_help)
-                metric_parser.add_argument('-T', '--throttle', action='store_true', required=False, help=throttle_help)
+                metric_parser.add_argument('-v', '--violation', dest='throttle', action='store_true', required=False, help=throttle_help)
+                metric_parser.add_argument('-T', '--throttle', dest='throttle', action='store_true', required=False, help=argparse.SUPPRESS)
 
             # Options to only display to Hypervisors
+            # Need to resolve the -G for guard, but technically should never intersect since it's VF only
             if self.helpers.is_hypervisor():
                 metric_parser.add_argument('-s', '--schedule', action='store_true', required=False, help=schedule_help)
                 metric_parser.add_argument('-G', '--guard', action='store_true', required=False, help=guard_help)
@@ -1019,17 +1114,18 @@ class AMDSMIParser(argparse.ArgumentParser):
             return
 
         # Subparser help text
-        process_help = "Lists general process information running on the specified GPU"
-        process_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
+        process_help = "Lists compute process information running on the specified GPU"
+        process_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns information for all GPUs on the system.\
                                 \nIf no process argument is provided, all process information will be displayed."
         process_optionals_title = "Process arguments"
 
         # Optional Arguments help text
         general_help = "pid, process name, memory usage"
         engine_help = "All engine usages"
-        pid_help = "Gets all process information about the specified process based on Process ID"
-        name_help = "Gets all process information about the specified process based on Process Name.\
-                    \nIf multiple processes have the same name, information is returned for all of them."
+        pid_help = "Gets compute process GPU information about the specified process based on Process ID"
+        name_help = "Gets compute process GPU information about the specified process based on Process Name.\
+                    \nIf multiple processes have the same name, information is returned for all of them.\
+                    \nProcess Name may require elevated permissions."
 
 
         # Create process subparser
@@ -1057,7 +1153,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         profile_help = "Displays information about all profiles and current profile"
-        profile_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system."
+        profile_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns information for all GPUs on the system."
         profile_optionals_title = "Profile Arguments"
 
         # Create profile subparser
@@ -1078,7 +1174,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         event_help = "Displays event information for the given GPU"
-        event_subcommand_help = "If no GPU is specified, returns event information for all GPUs on the system."
+        event_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns event information for all GPUs on the system."
         event_optionals_title = "Event Arguments"
 
         # Create event subparser
@@ -1099,7 +1195,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         topology_help = "Displays topology information of the devices"
-        topology_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
+        topology_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns information for all GPUs on the system.\
                                 \nIf no topology argument is provided, all topology information will be displayed."
         topology_optionals_title = "Topology arguments"
 
@@ -1143,7 +1239,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         set_value_help = "Set options for devices"
-        set_value_subcommand_help = "If no GPU is specified, will select all GPUs on the system.\
+        set_value_subcommand_help = f"{self.description}\n\nIf no GPU is specified, will select all GPUs on the system.\
                                     \nA set argument must be provided; Multiple set arguments are accepted.\
                                     \nRequires 'sudo' privileges."
         set_value_optionals_title = "Set Arguments"
@@ -1156,23 +1252,21 @@ class AMDSMIParser(argparse.ArgumentParser):
                 set_perf_level_help = f"Set one of the following performance levels:\n\t{perf_level_help_choices_str}"
                 power_profile_choices_str = ", ".join(self.helpers.get_power_profiles()[0:-1])
                 set_profile_help = f"Set power profile level (#) or choose one of available profiles:\n\t{power_profile_choices_str}"
-                perf_det_choices_str = ", ".join(self.helpers.get_perf_det_levels())
-                set_perf_det_help = f"Set performance determinism and select one of the corresponding performance levels:\n\t{perf_det_choices_str}"
+                set_perf_det_help = "Enable performance determinism mode and set GFXCLK softmax limit (in MHz)"
                 (accelerator_set_choices, _) = self.helpers.get_accelerator_choices_types_indices()
                 memory_partition_choices_str = ", ".join(self.helpers.get_memory_partition_types())
-                set_compute_partition_help = f"Set one of the following the accelerator TYPE or profile INDEX:\n\t{accelerator_set_choices}.\n\tUse `sudo amd-smi partition --accelerator` to find acceptable values."
+                accelerator_set_choices_str = ", ".join(accelerator_set_choices)
+                set_compute_partition_help = f"Set one of the following accelerator TYPE or profile INDEX:\n\t{accelerator_set_choices_str}.\n\tUse `sudo amd-smi partition --accelerator` to find acceptable values."
                 set_memory_partition_help = f"Set one of the following the memory partition modes:\n\t{memory_partition_choices_str}"
-                power_cap_min, power_cap_max = self.helpers.get_power_caps()
-                power_cap_max = self.helpers.convert_SI_unit(power_cap_max, AMDSMIHelpers.SI_Unit.MICRO)
-                power_cap_min = self.helpers.convert_SI_unit(power_cap_min, AMDSMIHelpers.SI_Unit.MICRO)
-                set_power_cap_help = f"Set power capacity limit:\n\tmin cap: {power_cap_min} W, max cap: {power_cap_max} W"
                 soc_pstate_help_info = ", ".join(self.helpers.get_soc_pstates())
                 set_soc_pstate_help = f"Set the GPU soc pstate policy using policy id, an integer. Valid id's include:\n\t{soc_pstate_help_info}"
                 xgmi_plpd_help_info = ", ".join(self.helpers.get_xgmi_plpd_policies())
                 set_xgmi_plpd_help = f"Set the GPU XGMI per-link power down policy using policy id, an integer. Valid id's include:\n\t{xgmi_plpd_help_info}"
-                set_clock_freq_help = "Set one or more sclk (aka gfxclk), mclk, fclk, pcie, or socclk frequency levels.\n\tUse `amd-smi static --clock` to find acceptable levels."
+                set_clock_freq_help = "Set one or more sclk (aka gfxclk), mclk, fclk, pcie, or socclk frequency levels.\n\tUse `amd-smi static --clock` to find acceptable levels.\n\tUse `amd-smi static --bus` to find acceptable pcie levels."
+            ppt0_power_cap_min, ppt0_power_cap_max, ppt1_power_cap_min, ppt1_power_cap_max = self.helpers.get_power_caps()
+            set_power_cap_help = f"Set either PPT0 or PPT1 power capacity limit:\n\tEx: `amd-smi set -o ppt0 1300`\n\tPPT0 min cap: {ppt0_power_cap_min}, PPT0 max cap: {ppt0_power_cap_max}\n\tPPT1 min cap: {ppt1_power_cap_min}, PPT1 max cap: {ppt1_power_cap_max}"
             set_clk_limit_help = "Sets the sclk (aka gfxclk) or mclk minimum and maximum frequencies. \n\tex: amd-smi set -L (sclk | mclk) (min | max) value"
-            set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis: 0 for disable and 1 for enable.\n"
+            set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis:\n    0 for disable and 1 for enable.\n"
 
         # Help text for CPU set options
         set_cpu_pwr_limit_help = "Set power limit for the given socket. Input parameter is power limit value."
@@ -1208,10 +1302,13 @@ class AMDSMIParser(argparse.ArgumentParser):
                 set_value_exclusive_group.add_argument('-C', '--compute-partition', action='store', choices=accelerator_set_choices, type=lambda value: self._is_command_supported(value, accelerator_set_choices, '--compute-partition'),
                                                        required=False, help=set_compute_partition_help, metavar=('TYPE/INDEX'))
                 set_value_exclusive_group.add_argument('-M', '--memory-partition', action='store', choices=self.helpers.get_memory_partition_types(), type=str.upper, required=False, help=set_memory_partition_help, metavar='PARTITION')
-                set_value_exclusive_group.add_argument('-o', '--power-cap', action='store', type=lambda value: self._positive_int(value, '--power-cap'), required=False, help=set_power_cap_help, metavar='WATTS')
+            # Power cap is enabled on guest, maintain order
+            set_value_exclusive_group.add_argument('-o', '--power-cap', action=self._power_cap_options(), nargs=2, required=False, help=set_power_cap_help, metavar=('PWR_TYPE', 'WATTS'))
+            if self.helpers.is_baremetal():
                 set_value_exclusive_group.add_argument('-p', '--soc-pstate', action='store', required=False, type=lambda value: self._not_negative_int(value, '--soc-pstate'), help=set_soc_pstate_help, metavar='POLICY_ID')
                 set_value_exclusive_group.add_argument('-x', '--xgmi-plpd', action='store', required=False, type=lambda value: self._not_negative_int(value, '--xgmi-plpd'), help=set_xgmi_plpd_help, metavar='POLICY_ID')
-                set_value_exclusive_group.add_argument('-c', '--clk-level', action=self._level_select(), nargs='+', required=False, help=set_clock_freq_help, metavar=('CLK_TYPE', 'FREQ_LEVELS'))
+                set_value_exclusive_group.add_argument('-c', '--clk-level', action=self._level_select(), nargs='+', required=False, help=set_clock_freq_help, metavar=('CLK_TYPE', 'PERF_LEVELS'))
+
             set_value_exclusive_group.add_argument('-L', '--clk-limit', action=self._limit_select(), nargs=3, required=False, help=set_clk_limit_help, metavar=('CLK_TYPE', 'LIM_TYPE', 'VALUE'))
             set_value_exclusive_group.add_argument('-R', '--process-isolation', action='store', choices=[0,1], type=lambda value: self._not_negative_int(value, '--process-isolation'), required=False, help=set_process_isolation_help, metavar='STATUS')
 
@@ -1251,7 +1348,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         reset_help = "Reset options for devices"
-        reset_subcommand_help = "If no GPU is specified, will select all GPUs on the system.\
+        reset_subcommand_help = f"{self.description}\n\nIf no GPU is specified, will select all GPUs on the system.\
                                 \nA reset argument must be provided; Multiple reset arguments are accepted.\
                                 \nRequires 'sudo' privileges."
         reset_optionals_title = "Reset Arguments"
@@ -1263,8 +1360,9 @@ class AMDSMIParser(argparse.ArgumentParser):
         reset_profile_help = "Reset power profile back to default"
         reset_xgmierr_help = "Reset XGMI error counts"
         reset_perf_det_help = "Disable performance determinism"
-        reset_power_cap_help = "Reset power capacity limit to max capable"
+        reset_power_cap_help = "Reset the PPT0 and PPT1 power capacity limit to max capable"
         reset_gpu_clean_local_data_help = "Clean up local data in LDS/GPRs on a per partition basis"
+        reset_gpu_driver_help = "Reset (reload) AMD GPU driver"
 
         # Create reset subparser
         reset_parser = subparsers.add_parser('reset', help=reset_help, description=reset_subcommand_help)
@@ -1284,6 +1382,7 @@ class AMDSMIParser(argparse.ArgumentParser):
             reset_exclusive_group.add_argument('-x', '--xgmierr', action='store_true', required=False, help=reset_xgmierr_help)
             reset_exclusive_group.add_argument('-d', '--perf-determinism', action='store_true', required=False, help=reset_perf_det_help)
             reset_exclusive_group.add_argument('-o', '--power-cap', action='store_true', required=False, help=reset_power_cap_help)
+            reset_exclusive_group.add_argument('-r', '--reload-driver', action='store_true', required=False, help=reset_gpu_driver_help)
 
         # Add Baremetal and Virtual OS reset arguments
         reset_exclusive_group.add_argument('-l', '--clean-local-data', action='store_true', required=False, help=reset_gpu_clean_local_data_help)
@@ -1305,7 +1404,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         monitor_help = "Monitor metrics for target devices"
-        monitor_subcommand_help = "Monitor a target device for the specified arguments.\
+        monitor_subcommand_help = f"{self.description}\n\nMonitor a target device for the specified arguments.\
                                   \nIf no arguments are provided, all arguments will be enabled.\
                                   \nUse the watch arguments to run continuously."
         monitor_optionals_title = "Monitor Arguments"
@@ -1320,7 +1419,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         ecc_help = "Monitor ECC single bit, ECC double bit, and PCIe replay error counts"
         mem_usage_help = "Monitor memory usage in MB"
         pcie_bandwidth_help = "Monitor PCIe bandwidth in Mb/s"
-        process_help = "Enable Process information table below monitor output"
+        process_help = "Enable Process information table below monitor output;\n    Process Name may require elevated permissions"
         violation_help = "Monitor power and thermal violation status (%%);\n    Only available for MI300 or newer ASICs"
 
         # Create monitor subparser
@@ -1340,7 +1439,8 @@ class AMDSMIParser(argparse.ArgumentParser):
         monitor_parser.add_argument('-v', '--vram-usage', action='store_true', required=False, help=mem_usage_help)
         monitor_parser.add_argument('-r', '--pcie', action='store_true', required=False, help=pcie_bandwidth_help)
         monitor_parser.add_argument('-q', '--process', action='store_true', required=False, help=process_help)
-        monitor_parser.add_argument('-V', '--violation', action='store_true', required=False, help=violation_help)
+        if not self.helpers.is_virtual_os():
+            monitor_parser.add_argument('-V', '--violation', action='store_true', required=False, help=violation_help)
 
         # Add Universal Arguments & Watch Args
         self._add_watch_arguments(monitor_parser)
@@ -1355,12 +1455,13 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         xgmi_help = "Displays xgmi information of the devices"
-        xgmi_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
+        xgmi_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns information for all GPUs on the system.\
                                 \nIf no xgmi argument is provided, all xgmi information will be displayed."
         xgmi_optionals_title = "XGMI arguments"
 
         # Help text for Arguments only on Guest and BM platforms
         metrics_help = "Metric XGMI information"
+        xgmi_source_status_help = "Source GPU XGMI Link information"
         xgmi_link_status_help = "XGMI Link Status information"
 
         # Create xgmi subparser
@@ -1371,6 +1472,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Optional Args
         xgmi_parser.add_argument('-m', '--metric', action='store_true', required=False, help=metrics_help)
+        xgmi_parser.add_argument('-s', '--source-status', action='store_true', required=False, help=xgmi_source_status_help)
         xgmi_parser.add_argument('-l', '--link-status', action='store_true', required=False, help=xgmi_link_status_help)
 
         # Add Universal Arguments
@@ -1385,7 +1487,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         partition_help = "Displays partition information of the devices"
-        partition_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
+        partition_subcommand_help = f"{self.description}\n\nIf no GPU is specified, returns information for all GPUs on the system.\
                                 \nIf no partition argument is provided, all partition information will be displayed."
         partition_optionals_title = "Partition arguments"
 
@@ -1422,6 +1524,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         ras_help = "Retrieve RAS (CPER) entries from the driver"
         ras_description = (
+            f"{self.description}\n\n"
             "Retrieve and decode RAS (CPER) entries from the kernel driver.\n"
             "Supports filtering by severity, exporting to different formats, and continuous monitoring.\n"
             "This command accepts options only; no positional arguments are required."
@@ -1430,13 +1533,13 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Help text for RAS arguments
         cper_help = "Trigger current CPER data retrieval"
-        afid_help = "Generate an AFID (AMD Field ID) using a CPER record, which is similar to XID."
+        afid_help = "Generate an AFID (AMD Field ID) given a CPER record file"
         severity_choices = ["nonfatal-uncorrected", "fatal", "nonfatal-corrected", "all"]
         severity_choices_str = ", ".join(severity_choices)
         severity_help = f"Set the SEVERITY filters from the following:\n    {severity_choices_str}"
         folder_help = "Folder to dump current CPER report files"
         file_limit_help = "Maximum number of current CPER files in target folder\n    Older files beyond limit will be deleted"
-        cper_file_help = "Full path of a retrieved cper record file to generate the AFID"
+        cper_file_help = "Full path of a retrieved CPER record file to generate the AFID"
         follow_help = "Continuously monitor for new CPER entries"
 
         ras_parser = subparsers.add_parser("ras", help=ras_help, description=ras_description)
@@ -1465,6 +1568,32 @@ class AMDSMIParser(argparse.ArgumentParser):
         self._add_command_modifiers(ras_parser)
 
 
+    def _add_node_parser(self, subparsers: argparse._SubParsersAction, func):
+        if self.helpers.is_virtual_os():
+            # This subparser is only available to Guest and Hypervisor systems
+            return
+
+        # Subparser help text
+        node_help = "Gets power information for the node"
+        node_subcommand_help = f"{self.description}\n\nReturns information for node 0 on the system.\
+                                \nIf no node argument is provided, all node information will be displayed."
+        node_optionals_title = "Node arguments"
+
+        # Help text for Node arguments
+        power_management_help = "Displays power management information"
+
+        node_parser = subparsers.add_parser("node", help=node_help, description=node_subcommand_help)
+        node_parser._optionals.title = node_optionals_title
+        node_parser.formatter_class = lambda prog: AMDSMISubparserHelpFormatter(prog)
+        node_parser.set_defaults(func=func)
+
+        # Optional Args
+        node_parser.add_argument('-p', '--power-management', action='store_true', required=False, help=power_management_help)
+
+        # Add Universal Arguments
+        self._add_command_modifiers(node_parser)
+
+
     def error(self, message):
         outputformat = self.helpers.get_output_format()
 
@@ -1479,6 +1608,6 @@ class AMDSMIParser(argparse.ArgumentParser):
         elif "unrecognized arguments: " in message:
             l = len("unrecognized arguments: ")
             message = message[l:]
-            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(message, outputformat)
+            raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(sys.argv[1], message, outputformat)
         else:
             print(message)

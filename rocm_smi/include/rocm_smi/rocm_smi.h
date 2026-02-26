@@ -25,12 +25,13 @@
 
 #ifdef __cplusplus
 extern "C" {
-#include <cstdint>
-#else
 #include <stdint.h>
+#include <stddef.h>
+#else
+#include <cstdint>
+#include <cstddef>
 #endif  // __cplusplus
 
-#include <stddef.h>
 #include <stdbool.h>
 
 #include "rocm_smi/kfd_ioctl.h"
@@ -532,9 +533,88 @@ typedef enum {
   RSMI_TEMP_TYPE_HBM_1,                        //!< HBM temperature instance 1
   RSMI_TEMP_TYPE_HBM_2,                        //!< HBM temperature instance 2
   RSMI_TEMP_TYPE_HBM_3,                        //!< HBM temperature instance 3
-  RSMI_TEMP_TYPE_LAST = RSMI_TEMP_TYPE_HBM_3,
+  RSMI_TEMP_TYPE_PLX,                          //!< PLX temperature
+  RSMI_TEMP_TYPE_GENERAL_LAST = RSMI_TEMP_TYPE_PLX,
+
+
+  // GPU Board Node temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_FIRST = 100,
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_RETIMER_X = RSMI_TEMP_TYPE_GPUBOARD_NODE_FIRST,  //!< Retimer X temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_OAM_X_IBC,         //!< OAM X IBC temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_OAM_X_IBC_2,       //!< OAM X IBC 2 temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_OAM_X_VDD18_VR,    //!< OAM X VDD 1.8V voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_OAM_X_04_HBM_B_VR, //!< OAM X 0.4V HBM B voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_OAM_X_04_HBM_D_VR, //!< OAM X 0.4V HBM D voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_NODE_LAST = RSMI_TEMP_TYPE_GPUBOARD_NODE_OAM_X_04_HBM_D_VR,
+
+  // GPU Board VR (Voltage Regulator) temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VR_FIRST = 150,
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_VDD0 = RSMI_TEMP_TYPE_GPUBOARD_VR_FIRST,  //!< VDDCR VDD0 voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_VDD1,        //!< VDDCR VDD1 voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_VDD2,        //!< VDDCR VDD2 voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_VDD3,        //!< VDDCR VDD3 voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_SOC_A,       //!< VDDCR SOC A voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_SOC_C,       //!< VDDCR SOC C voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_SOCIO_A,     //!< VDDCR SOCIO A voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_SOCIO_C,     //!< VDDCR SOCIO C voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDD_085_HBM,       //!< VDD 0.85V HBM voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_11_HBM_B,    //!< VDDCR 1.1V HBM B voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDCR_11_HBM_D,    //!< VDDCR 1.1V HBM D voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDD_USR,           //!< VDD USR voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_VDDIO_11_E32,      //!< VDDIO 1.1V E32 voltage regulator temperature
+  RSMI_TEMP_TYPE_GPUBOARD_LAST = RSMI_TEMP_TYPE_GPUBOARD_VDDIO_11_E32,
+
+  // Baseboard System temperature
+  RSMI_TEMP_TYPE_BASEBOARD_FIRST = 200,
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_FPGA = RSMI_TEMP_TYPE_BASEBOARD_FIRST,  //!< UBB FPGA temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_FRONT,         //!< UBB front temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_BACK,          //!< UBB back temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_OAM7,          //!< UBB OAM7 temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_IBC,           //!< UBB IBC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_UFPGA,         //!< UBB UFPGA temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_OAM1,          //!< UBB OAM1 temperature
+  RSMI_TEMP_TYPE_BASEBOARD_OAM_0_1_HSC,       //!< OAM 0-1 HSC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_OAM_2_3_HSC,       //!< OAM 2-3 HSC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_OAM_4_5_HSC,       //!< OAM 4-5 HSC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_OAM_6_7_HSC,       //!< OAM 6-7 HSC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_FPGA_0V72_VR,  //!< UBB FPGA 0.72V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_UBB_FPGA_3V3_VR,   //!< UBB FPGA 3.3V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_RETIMER_0_1_2_3_1V2_VR,  //!< Retimer 0-1-2-3 1.2V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_RETIMER_4_5_6_7_1V2_VR,  //!< Retimer 4-5-6-7 1.2V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_RETIMER_0_1_0V9_VR, //!< Retimer 0-1 0.9V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_RETIMER_4_5_0V9_VR, //!< Retimer 4-5 0.9V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_RETIMER_2_3_0V9_VR, //!< Retimer 2-3 0.9V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_RETIMER_6_7_0V9_VR, //!< Retimer 6-7 0.9V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_OAM_0_1_2_3_3V3_VR, //!< OAM 0-1-2-3 3.3V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_OAM_4_5_6_7_3V3_VR, //!< OAM 4-5-6-7 3.3V voltage regulator temperature
+  RSMI_TEMP_TYPE_BASEBOARD_IBC_HSC,           //!< IBC HSC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_IBC,               //!< IBC temperature
+  RSMI_TEMP_TYPE_BASEBOARD_LAST = RSMI_TEMP_TYPE_BASEBOARD_IBC,
+
+  RSMI_TEMP_TYPE_LAST = RSMI_TEMP_TYPE_BASEBOARD_LAST,    //!< Last of per GPU temperature types
+
   RSMI_TEMP_TYPE_INVALID = 0xFFFFFFFF          //!< Invalid type
 } rsmi_temperature_type_t;
+
+/**
+ * @brief NPM status
+ *
+ */
+typedef enum  {
+  RSMI_NPM_STATUS_DISABLED,
+  RSMI_NPM_STATUS_ENABLED
+} rsmi_npm_status_t;
+
+/**
+ * @brief NPM info including status, limit.
+ *
+ */
+typedef struct
+{
+  rsmi_npm_status_t status; //!< NPM status (enabled/disabled).
+  uint64_t limit;  //!< Node-level power limit in Watts.
+  uint64_t reserved[6];
+} rsmi_npm_info_t;
 
 /**
  * @brief Activity (Utilization) Metrics.  This enum is used to identify
@@ -606,6 +686,17 @@ typedef enum {
 } rsmi_power_profile_preset_masks_t;
 /// \cond Ignore in docs.
 typedef rsmi_power_profile_preset_masks_t rsmi_power_profile_preset_masks;
+/// \endcond
+
+/**
+ * @brief Power Cap Package Power Tracking (PPT) type
+ */
+typedef enum {
+    RSMI_POWER_CAP_TYPE_PPT0,       //!< PPT0 power cap; lower limit, filtered input
+    RSMI_POWER_CAP_TYPE_PPT1,       //!< PPT1 power cap; higher limit, raw input
+} rsmi_power_cap_type_t;
+/// \cond Ignore in docs.
+typedef rsmi_power_cap_type_t rsmi_power_cap_type;
 /// \endcond
 
 /**
@@ -1411,10 +1502,11 @@ typedef struct {
     uint64_t vram_usage;      //!< VRAM usage
     uint64_t sdma_usage;      //!< SDMA usage in microseconds
     uint32_t cu_occupancy;    //!< Compute Unit usage in percent
+    uint32_t evicted_time;    //!< Time that queues are evicted on a GPU in milliseconds
 } rsmi_process_info_t;
 
 //! CU occupancy invalidation value for the GFX revisions not providing cu_occupancy debugfs method
-#define CU_OCCUPANCY_INVALID 0xFFFFFFFF
+#define KFD_STATS_INVALID 0xFFFFFFFF
 
 /**
  * @brief Opaque handle to function-support object
@@ -2449,6 +2541,9 @@ rsmi_dev_power_cap_get(uint32_t dv_ind, uint32_t sensor_ind, uint64_t *cap);
  *
  *  @param[in] dv_ind a device index
  *
+ *  @param[in] sensor_ind a 0-based sensor index. Normally, this will be 0.
+ *  If a device has more than one sensor, it could be greater than 0.
+ *
  *  @param[inout] default_cap a pointer to a uint64_t that indicates the default
  *  power cap, in microwatts
  *  If this parameter is nullptr, this function will return
@@ -2462,7 +2557,7 @@ rsmi_dev_power_cap_get(uint32_t dv_ind, uint32_t sensor_ind, uint64_t *cap);
  *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
  */
 rsmi_status_t
-rsmi_dev_power_cap_default_get(uint32_t dv_ind, uint64_t *default_cap);
+rsmi_dev_power_cap_default_get(uint32_t dv_ind, uint32_t sensor_ind, uint64_t *default_cap);
 
 /**
  *  @brief Get the range of valid values for the power cap
@@ -2551,6 +2646,29 @@ rsmi_dev_power_cap_set(uint32_t dv_ind, uint32_t sensor_ind, uint64_t cap);
 rsmi_status_t
 rsmi_dev_power_profile_set(uint32_t dv_ind, uint32_t reserved,
                                    rsmi_power_profile_preset_masks_t profile);
+
+ /**
+ *  @brief Query the supported power cap sensors and their types for a device.
+ *
+ *  @ingroup tagPowerControl
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function returns the number of supported power cap sensors for the given device,
+ *  including their sensor indices and types (e.g., PPT0, PPT1).
+ *
+ *  @param[in]  dv_ind A device index.
+ *  @param[out] sensor_count Pointer to a uint32_t that will be set to the number of supported sensors.
+ *  @param[out] sensor_inds Pointer to an array of uint32_t to be filled with sensor indices.
+ *                          The array must be allocated by the caller with enough space.
+ *  @param[out] sensor_types Pointer to an array of rsmi_power_cap_type_t to be filled with sensor types.
+ *                          The array must be allocated by the caller with enough space.
+ *
+ *  @return ::rsmi_status_t | ::RSMI_STATUS_SUCCESS on success, non-zero on fail.
+ */
+rsmi_status_t 
+rsmi_dev_supported_power_cap_get(uint32_t dv_ind, uint32_t *sensor_count,
+                                 uint32_t *sensor_inds, rsmi_power_cap_type_t *sensor_types);
 /** @} */  // end of PowerCont
 /*****************************************************************************/
 
@@ -2793,6 +2911,9 @@ rsmi_status_t rsmi_dev_fan_speed_get(uint32_t dv_ind,
  */
 rsmi_status_t rsmi_dev_fan_speed_max_get(uint32_t dv_ind,
                                     uint32_t sensor_ind, uint64_t *max_speed);
+
+rsmi_status_t rsmi_dev_npm_info_get(uint32_t dv_ind,
+                              uintptr_t node_handle, rsmi_npm_info_t *npm_info);
 
 /**
  *  @brief Get the temperature metric value for the specified metric, from the
@@ -3192,7 +3313,9 @@ rsmi_status_t rsmi_dev_gpu_reset(uint32_t dv_ind);
  *  If this parameter is nullptr, this function will return
  *  ::RSMI_STATUS_INVALID_ARGS if the function is supported with the provided,
  *  arguments and ::RSMI_STATUS_NOT_SUPPORTED if it is not supported with the
- *  provided arguments.
+ *  provided arguments. In the event where there are some values are missing from
+ *  or not available on the device, the respective values will be set to
+ *  UINT64_MAX.
  *
  *  @retval ::RSMI_STATUS_SUCCESS call was successful
  *  @retval ::RSMI_STATUS_NOT_SUPPORTED installed software or hardware does not
@@ -3201,6 +3324,29 @@ rsmi_status_t rsmi_dev_gpu_reset(uint32_t dv_ind);
  */
 rsmi_status_t rsmi_dev_od_volt_info_get(uint32_t dv_ind,
                                                rsmi_od_volt_freq_data_t *odv);
+
+/**
+ *  @brief This function retrieves the gpu partition metrics information
+ *
+ *  @details Given a device index @p dv_ind and a pointer to a
+ *  ::rsmi_gpu_metrics_t structure @p pgpu_metrics, this function will populate
+ *  @p pgpu_metrics. See ::rsmi_gpu_metrics_t for more details.
+ *
+ *  @param[in] dv_ind a device index
+ *
+ *  @param[inout] pgpu_metrics a pointer to an ::rsmi_gpu_metrics_t structure
+ *  If this parameter is nullptr, this function will return
+ *  ::RSMI_STATUS_INVALID_ARGS if the function is supported with the provided,
+ *  arguments and ::RSMI_STATUS_NOT_SUPPORTED if it is not supported with the
+ *  provided arguments.
+ *
+ *  @retval ::RSMI_STATUS_SUCCESS call was successful
+ *  @retval ::RSMI_STATUS_NOT_SUPPORTED installed software or hardware does not
+ *  support this function with the given arguments
+ *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
+ */
+rsmi_status_t rsmi_dev_gpu_partition_metrics_info_get(uint32_t dv_ind,
+                                                      rsmi_gpu_metrics_t *pgpu_metrics);
 
 /**
  *  @brief This function retrieves the gpu metrics information
@@ -3860,6 +4006,35 @@ rsmi_version_str_get(rsmi_sw_component_t component, char *ver_str,
  */
 rsmi_status_t
 rsmi_dev_vbios_version_get(uint32_t dv_ind, char *vbios, uint32_t len);
+
+/**
+ *  @brief Get the VBIOS Build string
+ *
+ *  @details Given a device ID @p dv_ind, and a pointer to a char buffer,
+ *  @p vbios, this function will write the VBIOS Build string (up to @p len
+ *  characters) for device @p dv_ind to @p vbios. The caller must ensure that
+ *  it is safe to write at least @p len characters to @p vbios.
+ *
+ *  @param[in] dv_ind a device index
+ *
+ *  @param[inout] vbios_build_number A pointer to a buffer of char's to which the VBIOS
+ *  Build will be written
+ *  If this parameter is nullptr, this function will return
+ *  ::RSMI_STATUS_INVALID_ARGS if the function is supported with the provided,
+ *  arguments and ::RSMI_STATUS_NOT_SUPPORTED if it is not supported with the
+ *  provided arguments.
+ *
+ *  @param[in] len The number of char's pointed to by @p vbios which can safely
+ *  be written to by this function.
+ *
+ *  @retval ::RSMI_STATUS_SUCCESS call was successful
+ *  @retval ::RSMI_STATUS_NOT_SUPPORTED installed software or hardware does not
+ *  support this function with the given arguments
+ *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
+ *
+ */
+rsmi_status_t
+rsmi_dev_vbios_build_number_get(uint32_t dv_ind, char *vbios_build_number, uint32_t len);
 
 /**
  *  @brief Get the firmware versions for a device
@@ -5440,6 +5615,56 @@ rsmi_status_t
 rsmi_dev_metrics_log_get(uint32_t dv_ind);
 
 /** @} */  // end of DevMetricsHeaderInfoGet
+
+/*****************************************************************************/
+/** @defgroup DriverControl Driver control mechanisms
+ *  These functions provide control over the driver. Users should use with
+ *  caution as they may cause the driver to become unstable.
+ *  @{
+ */
+/**
+ *  @brief Restart the device driver (kmod module) for all AMD GPUs on the
+ *  system.
+ *
+ *  @details This function will reload the AMD GPU driver as described in
+ *  the Linux kernel documentation -
+ *  https://docs.kernel.org/admin-guide/sysctl/kernel.html#modprobe
+ *  with no extra parameters as specified in
+ *  https://docs.kernel.org/gpu/amdgpu/module-parameters.html.
+ * 
+ *  Use this function with caution, as it will unload and reload the AMD GPU
+ *  driver: `modprobe -r amdgpu && modprobe amdgpu`. 
+ *  
+ *  Any process or workload using the AMD GPU driver is REQUIRED to be
+ *  stopped before calling this function. Otherwise, function will return
+ *  ::RSMI_STATUS_AMDGPU_RESTART_ERR could not successfully restart
+ *  the amdgpu driver.
+ * 
+ *  User is REQUIRED to have root/admin privileges to call this function.
+ *  Otherwise, this function will return ::RSMI_STATUS_PERMISSION.
+ * 
+ *  This API will take time to complete, as we are checking the driver's
+ *  loading status to confirm it reloaded properly. If
+ *  ::RSMI_STATUS_AMDGPU_RESTART_ERR is returned, it means the driver
+ *  did not reload properly and the user should check dmesg logs.
+ * 
+ *  This function has been created in order to conviently reload the
+ *  AMD GPU driver once `rsmi_dev_memory_partition_set()`
+ *  successfully has been changed on Baremetal systems.
+ *  Now users can control the reload once all GPU processes/workloads
+ *  have been stopped on the AMD GPU driver. A (AMD GPU) driver reload
+ *  is REQUIRED to complete changing to the new memory partition
+ *  configuration (`rsmi_dev_memory_partition_set()`) operation MUST
+ *  be successful. This function WILL EFFECT all GPUs in the hive to
+ *  be reconfigured with the specified memory partition configuration.
+ *
+ *  @retval ::RSMI_STATUS_SUCCESS call was successful
+ *  @retval ::RSMI_STATUS_PERMISSION function requires root access
+ *  @retval ::RSMI_STATUS_AMDGPU_RESTART_ERR could not successfully restart
+ *            the amdgpu driver.
+ */
+rsmi_status_t rsmi_dev_amdgpu_driver_reload(void);
+/** @} */  // end of DriverControl
 
 #ifdef __cplusplus
 }

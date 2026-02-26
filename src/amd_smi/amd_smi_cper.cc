@@ -27,9 +27,10 @@
 #include <memory>
 #include <cstring>
 #include <sstream>
-#include <vector>
 
-#include "aca-decode/aca_decode.h"
+extern "C" {
+#include "ras-decode/aca_decode.h"
+}
 #include "amd_smi/impl/amd_smi_cper.h"
 #include "rocm_smi/rocm_smi_logger.h"
 
@@ -155,8 +156,6 @@ static auto amdsmi_read_cper_file(const std::string &filepath) -> CperFileCtx {
     GUID_INIT(0xDC3EA0B0, 0xA144, 0x4797, 0xB9, 0x5B, 0x53, 0xFA,   \
           0x24, 0x2B, 0x6E, 0x1D)
 
-static amdsmi_cper_guid_t mce = CPER_NOTIFY_MCE;
-static amdsmi_cper_guid_t cmc = CPER_NOTIFY_CMC;
 static amdsmi_cper_guid_t bt = BOOT_TYPE;
 static amdsmi_cper_guid_t cr = AMD_OOB_CRASHDUMP;
 static amdsmi_cper_guid_t nonstd = AMD_GPU_NONSTANDARD_ERROR;
@@ -255,16 +254,16 @@ static int cper_dump_sec_desc(const struct cper_sec_desc *desc)
     return 0;
 }
 
-static int aca_decode_fatal(const cper_sec_crashdump_data &data, uint32_t flag, uint16_t hw_revision) 
+static int aca_decode_fatal(const cper_sec_crashdump_data &data, uint32_t flag, uint16_t hw_revision, uint16_t register_context_type) 
 {
     const uint64_t *register_array = reinterpret_cast<const uint64_t *>(&data.dump.fatal_err);
-    return decode_afid(register_array, sizeof(data.dump.fatal_err)/sizeof(uint64_t), flag, hw_revision);
+    return decode_afid(register_array, sizeof(data.dump.fatal_err)/sizeof(uint64_t), flag, hw_revision, register_context_type);
 }
 
-static int aca_decode_corrected_error(const uint32_t *reg_dump, size_t num_bytes, uint32_t flag, uint16_t hw_revision)  
+static int aca_decode_corrected_error(const uint32_t *reg_dump, size_t num_bytes, uint32_t flag, uint16_t hw_revision, uint16_t register_context_type)  
 {
     const uint64_t *register_array = reinterpret_cast<const uint64_t *>(reg_dump);
-    return decode_afid(register_array, num_bytes, flag, hw_revision);
+    return decode_afid(register_array, num_bytes, flag, hw_revision, register_context_type);
 }
 
 static int cper_dump_nonstd_err(const struct cper_sec_nonstd_err *nonstd_err, const cper_sec_desc *section)
@@ -300,7 +299,7 @@ exit:
     LOG_DEBUG(ss);
 
     return aca_decode_corrected_error(body->err_ctx.reg_dump, sizeof(body->err_ctx.reg_dump)/sizeof(uint64_t), 
-        section->flags_mask, section->revision_major);
+        section->flags_mask, section->revision_major, body->err_ctx.reg_ctx_type);
 }
 
 static int cper_dump_cr_fatal(const struct cper_sec_crashdump *crashdump, const cper_sec_desc *section)
@@ -321,7 +320,7 @@ static int cper_dump_cr_fatal(const struct cper_sec_crashdump *crashdump, const 
 
     LOG_DEBUG(ss);
 
-    return aca_decode_fatal(crashdump->data, section->flags_mask, section->revision_major);
+    return aca_decode_fatal(crashdump->data, section->flags_mask, section->revision_major, crashdump->data.reg_ctx_type);
 }
 
 static int cper_dump_cr_boot(const struct cper_sec_crashdump *crashdump, const cper_sec_desc *section)
@@ -336,7 +335,16 @@ static int cper_dump_cr_boot(const struct cper_sec_crashdump *crashdump, const c
     ss << "~~~~CRASH DUMP - BOOT TIME~~~\n\n";
     LOG_DEBUG(ss);
 
-    return aca_decode_fatal(crashdump->data, section->flags_mask, section->revision_major);
+    return aca_decode_fatal(crashdump->data, section->flags_mask, section->revision_major, crashdump->data.reg_ctx_type);
+}
+
+static void inject_product_serial_number(amdsmi_cper_hdr_t *cper, uint64_t product_serial) {
+    for (size_t i = 0; i < cper_num_sec(cper); i++) {
+        void *sec_desc_offset = cper_get_sec_desc_offset(cper, i);
+        struct cper_sec_desc *sec_desc = static_cast<struct cper_sec_desc *>(sec_desc_offset);
+        strncpy(sec_desc->fru_id, std::to_string(product_serial).c_str(), sizeof(sec_desc->fru_id) - 1);
+        sec_desc->fru_id[sizeof(sec_desc->fru_id) - 1] = '\0';
+    }
 }
 
 } //namespace 
@@ -348,7 +356,8 @@ amdsmi_status_t amdsmi_get_gpu_cper_entries_by_path(
     uint64_t *buf_size,
     amdsmi_cper_hdr_t **cper_hdrs,
     uint64_t *entry_count,
-    uint64_t *cursor) {
+    uint64_t *cursor,
+    uint64_t product_serial) {
 
     std::ostringstream ss;
     ss << __PRETTY_FUNCTION__ << "\n:" << __LINE__ << "[CPER] begin\n"
@@ -420,7 +429,7 @@ amdsmi_status_t amdsmi_get_gpu_cper_entries_by_path(
         if(((1 << header->error_severity) & severity_mask) !=
             static_cast<uint32_t>(1 << header->error_severity)) {
             ss << __PRETTY_FUNCTION__ << "\n:" << __LINE__ << "[CPER] cper header rejected with severity: 0x"
-                << std::hex << (1 << header->error_severity) << ", given severity_mask: 0x"
+                << std::hex << (header->error_severity) << ", given severity_mask: 0x"
                 << std::hex << severity_mask << ", record_length:"
                 << std::dec << header->record_length;
             LOG_DEBUG(ss);
@@ -428,7 +437,7 @@ amdsmi_status_t amdsmi_get_gpu_cper_entries_by_path(
         }
         else {
             ss << __PRETTY_FUNCTION__ << "\n:" << __LINE__ << "[CPER] cper header accepted with severity: 0x"
-                << std::hex << (1 << header->error_severity) << ", given severity_mask: 0x"
+                << std::hex << (header->error_severity) << ", given severity_mask: 0x"
                 << std::hex << severity_mask << ", record_length:"
                 << std::dec << header->record_length;
             LOG_DEBUG(ss);
@@ -462,15 +471,16 @@ amdsmi_status_t amdsmi_get_gpu_cper_entries_by_path(
             &cper_data[data_idx],
             reinterpret_cast<const char*>(header),
             header->record_length);
+        inject_product_serial_number(reinterpret_cast<amdsmi_cper_hdr_t*>(&cper_data[data_idx]), product_serial);
         data_idx += header->record_length;
    }
    *entry_count = num_headers_copied;
    *buf_size = data_idx;
 
     ss << __PRETTY_FUNCTION__ << "\n:" << __LINE__
-        << "[CPER] *entry_count: " << entry_count
-        << ", *cursor: " << cursor
-        << ", *buf_size: " << buf_size;
+        << "[CPER] *entry_count: " << *entry_count
+        << ", *cursor: " << *cursor
+        << ", *buf_size: " << *buf_size;
 
     LOG_DEBUG(ss);
     return AMDSMI_STATUS_SUCCESS;
